@@ -1,6 +1,7 @@
 # Onii-chan, onchain virtual idol manager
 
-![Idol Manager](https://raw.githubusercontent.com/ProbablyNothingWorks/onii-chan/refs/heads/main/public/idol_manager.jpeg?token=GHSAT0AAAAAAC2I2JWJ247F5G553XLUDC3EZZYIA2A)
+![Idol Manager](https://raw.githubusercontent.com/ProbablyNothingWorks/onii-chan/refs/heads/main/public/idol_manager.jpeg?token=GHSAT0AAAAAAC2I2JWJ247F5G553XLUDC3EZZYIA2A)  
+
 Source: Idol Manager by Glitch Pitch.
 
 ## Onii-chan!
