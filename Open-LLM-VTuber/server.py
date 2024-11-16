@@ -4,10 +4,10 @@ import shutil
 import atexit
 import json
 import asyncio
-from typing import List, Dict
+from typing import List, Dict, Any, Optional
 import yaml
 import numpy as np
-from fastapi import FastAPI, WebSocket, APIRouter
+from fastapi import FastAPI, WebSocket, APIRouter, BackgroundTasks
 from fastapi.staticfiles import StaticFiles
 from starlette.websockets import WebSocketDisconnect
 from main import OpenLLMVTuberMain
@@ -15,6 +15,10 @@ from live2d_model import Live2dModel
 from tts.stream_audio import AudioPayloadPreparer
 import chardet
 from loguru import logger
+from pubsub_client import PubSubClient  # Your pubsub implementation
+import uuid
+from web3 import Web3  # For EVM interactions
+from datetime import datetime
 
 
 class WebSocketServer:
@@ -39,9 +43,209 @@ class WebSocketServer:
         self.connected_clients: List[WebSocket] = []
         self.server_ws_clients: List[WebSocket] = []
         self.open_llm_vtuber_main_config: Dict | None = open_llm_vtuber_main_config
+        self.active_sessions: Dict[str, OpenLLMVTuberMain] = {}
+        self.pubsub = PubSubClient()
+        self.background_tasks = BackgroundTasks()
+        
+        # Initialize Web3 connection
+        self.w3 = Web3(Web3.HTTPProvider(open_llm_vtuber_main_config.get("WEB3_RPC_URL")))
+        self.nft_contract = self.init_nft_contract()
+        
+        # Register WebSocket endpoint
+        self.app.websocket("/client-ws")(self.websocket_endpoint)
+        
+        # Start pubsub listener
+        asyncio.create_task(self.listen_to_pubsub())
+        
         self._setup_routes()
         self._mount_static_files()
         self.app.include_router(self.router)
+
+    async def listen_to_pubsub(self):
+        """Listen for external events from pubsub"""
+        async for event in self.pubsub.subscribe("vtuber_events"):
+            try:
+                await self.handle_pubsub_event(event)
+            except Exception as e:
+                print(f"Error handling pubsub event: {e}")
+
+    async def handle_pubsub_event(self, event: Dict[str, Any]):
+        """Handle different types of pubsub events"""
+        event_type = event.get("type")
+        session_id = event.get("session_id")
+        
+        if session_id not in self.active_sessions:
+            print(f"No active session for {session_id}")
+            return
+            
+        vtuber = self.active_sessions[session_id]
+        
+        if event_type == "interrupt":
+            vtuber.interrupt(heard_sentence=event.get("heard_sentence", ""))
+        elif event_type == "new_prompt":
+            # Queue a new conversation without interrupting current one
+            await self.queue_conversation(vtuber, event.get("prompt"))
+        elif event_type == "change_persona":
+            # Handle persona change
+            new_persona = event.get("persona")
+            await self.update_persona(vtuber, new_persona)
+        elif event_type == "tip":
+            # Handle tip event with both chat and NFT minting
+            amount = event.get("amount")
+            currency = event.get("currency", "USD")
+            username = event.get("username", "Anonymous")
+            wallet_address = event.get("wallet_address")
+            
+            # Start both processes concurrently
+            await asyncio.gather(
+                self.handle_tip_chat(vtuber, amount, currency, username),
+                self.handle_tip_rewards(amount, wallet_address, username)
+            )
+
+    async def handle_tip_chat(self, vtuber: OpenLLMVTuberMain, amount: float, 
+                            currency: str, username: str):
+        """Handle the chat response to a tip"""
+        try:
+            # Interrupt current conversation if any
+            vtuber.interrupt()
+            
+            # Format tip message with NFT info
+            prompt = (
+                f"A viewer named {username} just sent me a tip of {amount} {currency}! "
+                "They will receive a special NFT as a thank you. "
+                "Please express gratitude and excitement about both the tip and sending them an NFT. "
+                "Make it personal and reference the amount and username in your response."
+            )
+            
+            # Queue the response to the tip
+            await self.queue_conversation(vtuber, prompt)
+            
+            # Log the tip
+            logger.info(f"Received tip: {amount} {currency} from {username}")
+            
+        except Exception as e:
+            logger.error(f"Error handling tip chat: {e}")
+
+    async def handle_tip_rewards(self, amount: float, wallet_address: Optional[str], 
+                               username: str):
+        """Handle blockchain rewards for tips"""
+        try:
+            if not wallet_address:
+                logger.warning(f"No wallet address provided for {username}'s tip")
+                return
+
+            # Determine NFT tier based on tip amount
+            nft_tier = self.determine_nft_tier(amount)
+            
+            # Queue the NFT minting transaction
+            tx_hash = await self.mint_nft(wallet_address, nft_tier)
+            
+            logger.info(
+                f"NFT minting initiated for {username} "
+                f"(wallet: {wallet_address[:8]}...), "
+                f"tier: {nft_tier}, tx: {tx_hash}"
+            )
+            
+            # Optionally wait for confirmation
+            await self.wait_for_transaction(tx_hash)
+            
+        except Exception as e:
+            logger.error(f"Error handling tip rewards: {e}")
+
+    def determine_nft_tier(self, amount: float) -> int:
+        """Determine NFT tier based on tip amount"""
+        if amount >= 100:
+            return 3  # Legendary
+        elif amount >= 50:
+            return 2  # Rare
+        return 1     # Common
+
+    async def mint_nft(self, wallet_address: str, tier: int) -> str:
+        """Mint an NFT for the tipper"""
+        try:
+            if not self.nft_contract:
+                raise ValueError("NFT contract not initialized")
+
+            # Prepare the transaction
+            tx = await self.nft_contract.functions.mint(
+                wallet_address,
+                tier,
+                int(datetime.now().timestamp())  # Optional timestamp
+            ).build_transaction({
+                'from': self.open_llm_vtuber_main_config.get("MINTER_ADDRESS"),
+                'nonce': self.w3.eth.get_transaction_count(
+                    self.open_llm_vtuber_main_config.get("MINTER_ADDRESS")
+                ),
+            })
+
+            # Sign and send the transaction
+            signed_tx = self.w3.eth.account.sign_transaction(
+                tx, 
+                self.open_llm_vtuber_main_config.get("MINTER_PRIVATE_KEY")
+            )
+            tx_hash = self.w3.eth.send_raw_transaction(signed_tx.rawTransaction)
+            
+            return tx_hash.hex()
+            
+        except Exception as e:
+            logger.error(f"Error minting NFT: {e}")
+            raise
+
+    async def wait_for_transaction(self, tx_hash: str, max_attempts: int = 50):
+        """Wait for transaction confirmation"""
+        for _ in range(max_attempts):
+            try:
+                receipt = self.w3.eth.get_transaction_receipt(tx_hash)
+                if receipt and receipt['status'] == 1:
+                    logger.info(f"Transaction {tx_hash} confirmed")
+                    return receipt
+                await asyncio.sleep(1)
+            except Exception:
+                await asyncio.sleep(1)
+        raise TimeoutError(f"Transaction {tx_hash} not confirmed after {max_attempts} attempts")
+
+    async def queue_conversation(self, vtuber: OpenLLMVTuberMain, prompt: str):
+        """Queue a new conversation to start after current one completes"""
+        try:
+            # Wait for any current conversation to complete
+            while vtuber._continue_exec_flag.is_set():
+                await asyncio.sleep(0.1)
+            
+            # Start new conversation
+            response = vtuber.conversation_chain(prompt)
+            return response
+        except Exception as e:
+            print(f"Error queuing conversation: {e}")
+    
+    async def update_persona(self, vtuber: OpenLLMVTuberMain, new_persona: str):
+        """Update the vtuber's persona"""
+        try:
+            # Interrupt current conversation if any
+            vtuber.interrupt()
+            
+            # Update system prompt with new persona
+            new_system_prompt = self.load_persona_prompt(new_persona)
+            vtuber.llm.system = new_system_prompt
+            
+            # Optionally send confirmation message
+            await vtuber.conversation_chain("Persona updated! How may I help you?")
+        except Exception as e:
+            print(f"Error updating persona: {e}")
+
+    async def websocket_endpoint(self, websocket: WebSocket):
+        """Existing WebSocket handler"""
+        await websocket.accept()
+        session_id = str(uuid.uuid4())
+        
+        try:
+            vtuber = OpenLLMVTuberMain(self.open_llm_vtuber_main_config, websocket=websocket)
+            self.active_sessions[session_id] = vtuber
+            
+            # Existing WebSocket handling code...
+            
+        finally:
+            if session_id in self.active_sessions:
+                del self.active_sessions[session_id]
 
     def _initialize_components(
         self, websocket: WebSocket
@@ -322,6 +526,14 @@ class WebSocketServer:
         if (os.path.exists(cache_dir)):
             shutil.rmtree(cache_dir)
             os.makedirs(cache_dir)
+
+    def init_nft_contract(self):
+        """Initialize the NFT contract connection"""
+        contract_address = self.open_llm_vtuber_main_config.get("NFT_CONTRACT_ADDRESS")
+        contract_abi = self.open_llm_vtuber_main_config.get("NFT_CONTRACT_ABI")
+        if contract_address and contract_abi:
+            return self.w3.eth.contract(address=contract_address, abi=contract_abi)
+        return None
 
 
 def load_config_with_env(path) -> dict:

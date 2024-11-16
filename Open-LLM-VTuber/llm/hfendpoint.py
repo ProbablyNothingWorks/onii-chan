@@ -38,9 +38,18 @@ class LLM(LLMInterface):
         print(f"DEBUG: Starting chat_iter with prompt: {prompt}")
         
         try:
-            # Add the new user message
-            messages = list(self.messages)  # Copy existing messages
-            messages.append({"role": "user", "content": prompt})
+            # Add special handling for tip prompts
+            if "just sent me a tip of" in prompt:
+                # Ensure the response is extra enthusiastic for tips
+                messages = list(self.messages)  # Copy existing messages
+                messages.append({
+                    "role": "system", 
+                    "content": "Remember to be extra enthusiastic and grateful when responding to tips!"
+                })
+                messages.append({"role": "user", "content": prompt})
+            else:
+                messages = list(self.messages)  # Copy existing messages
+                messages.append({"role": "user", "content": prompt})
             
             print("DEBUG: Starting chat completion...")
             chat_completion = self.client.chat.completions.create(
