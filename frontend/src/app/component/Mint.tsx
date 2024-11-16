@@ -28,7 +28,13 @@ export const Mint = () => {
 
   return (
     <Box>
-      <Box width='500px'>
+      <Box 
+        width='500px'
+        sx={{
+          position: 'sticky',
+          top: '100px',
+        }}
+      >
         <video
           src={`video/${model}-${voice}.mp4`}
           autoPlay
@@ -37,8 +43,6 @@ export const Mint = () => {
           style={{
             height: '300px',
             width: '500px',
-            position: 'sticky',
-            top: '100px',
             borderRadius: 16,
             marginBottom: 16
           }}
