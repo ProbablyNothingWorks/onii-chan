@@ -8,6 +8,14 @@ import { type State, WagmiProvider } from 'wagmi';
 
 import { getConfig } from './wagmi'; // your import path may vary
 import { RainbowKitProvider } from '@rainbow-me/rainbowkit';
+import { ThemeProvider } from '@mui/material';
+import { createTheme } from '@mui/material';
+
+const darkTheme = createTheme({
+  palette: {
+    mode: 'dark'
+  }
+});
 
 export function Providers(props: {
   children: ReactNode;
@@ -17,15 +25,17 @@ export function Providers(props: {
   const [queryClient] = useState(() => new QueryClient());
 
   return (
-    <WagmiProvider config={config} initialState={props.initialState}>
-      <QueryClientProvider client={queryClient}>
-        <OnchainKitProvider
-          apiKey={process.env.NEXT_PUBLIC_ONCHAINKIT_API_KEY}
-          chain={baseSepolia} // add baseSepolia for testing
-        >
-          <RainbowKitProvider>{props.children}</RainbowKitProvider>
-        </OnchainKitProvider>
-      </QueryClientProvider>
-    </WagmiProvider>
+    <ThemeProvider theme={darkTheme}>
+      <WagmiProvider config={config} initialState={props.initialState}>
+        <QueryClientProvider client={queryClient}>
+          <OnchainKitProvider
+            apiKey={process.env.NEXT_PUBLIC_ONCHAINKIT_API_KEY}
+            chain={baseSepolia} // add baseSepolia for testing
+          >
+            <RainbowKitProvider>{props.children}</RainbowKitProvider>
+          </OnchainKitProvider>
+        </QueryClientProvider>
+      </WagmiProvider>
+    </ThemeProvider>
   );
 }
