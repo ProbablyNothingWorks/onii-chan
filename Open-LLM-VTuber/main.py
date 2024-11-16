@@ -386,6 +386,15 @@ class OpenLLMVTuberMain:
                 sentence_buffer = ""
 
                 for char in chat_completion:
+                    # Validate that char is actually a string
+                    if isinstance(char, dict):
+                        print(f"Warning: Received dictionary instead of string: {char}")
+                        continue
+                    
+                    if not isinstance(char, str):
+                        print(f"Warning: Received non-string type: {type(char)}")
+                        continue
+
                     if not self._continue_exec_flag.is_set():
                         raise InterruptedError("Producer interrupted")
 
@@ -398,38 +407,59 @@ class OpenLLMVTuberMain:
                                 print("\n")
                             if not self._continue_exec_flag.is_set():
                                 raise InterruptedError("Producer interrupted")
-                            tts_target_sentence = sentence_buffer
+                            
+                            # Skip empty sentences
+                            if not sentence_buffer.strip():
+                                sentence_buffer = ""
+                                continue
 
-                            if self.translator and self.config.get(
-                                "TRANSLATE_AUDIO", False
-                            ):
-                                print("Translating...")
-                                tts_target_sentence = self.translator.translate(
-                                    tts_target_sentence
-                                )
-                                print(f"Translated: {tts_target_sentence}")
+                            tts_target_sentence = sentence_buffer.strip()
 
-                            audio_filepath = self._generate_audio_file(
-                                tts_target_sentence, file_name_no_ext=uuid.uuid4()
-                            )
+                            # Extra validation for tts_target_sentence
+                            if not isinstance(tts_target_sentence, str):
+                                print(f"Warning: Invalid sentence type: {type(tts_target_sentence)}")
+                                sentence_buffer = ""
+                                continue
 
-                            if not self._continue_exec_flag.is_set():
-                                raise InterruptedError("Producer interrupted")
-                            audio_info = {
-                                "sentence": sentence_buffer,
-                                "audio_filepath": audio_filepath,
-                            }
-                            task_queue.put(audio_info)
-                            index += 1
+                            if self.translator and self.config.get("TRANSLATE_AUDIO", False):
+                                try:
+                                    print("Translating...")
+                                    tts_target_sentence = self.translator.translate(tts_target_sentence)
+                                    print(f"Translated: {tts_target_sentence}")
+                                except Exception as e:
+                                    print(f"Translation error: {e}")
+                                    # Continue with original text if translation fails
+                                    tts_target_sentence = sentence_buffer.strip()
+
+                            # Only generate audio if we have valid text
+                            if tts_target_sentence and isinstance(tts_target_sentence, str):
+                                try:
+                                    audio_filepath = self._generate_audio_file(
+                                        tts_target_sentence, file_name_no_ext=str(uuid.uuid4())
+                                    )
+
+                                    if not self._continue_exec_flag.is_set():
+                                        raise InterruptedError("Producer interrupted")
+                                        
+                                    if audio_filepath:  # Only queue if we got a valid filepath
+                                        audio_info = {
+                                            "sentence": sentence_buffer,
+                                            "audio_filepath": audio_filepath,
+                                        }
+                                        task_queue.put(audio_info)
+                                        index += 1
+                                except Exception as e:
+                                    print(f"Audio generation error: {e}")
+                            
                             sentence_buffer = ""
 
                 # Handle any remaining text in the buffer
-                if sentence_buffer:
+                if sentence_buffer and sentence_buffer.strip():
                     if not self._continue_exec_flag.is_set():
                         raise InterruptedError("Producer interrupted")
                     print("\n")
                     audio_filepath = self._generate_audio_file(
-                        sentence_buffer, file_name_no_ext=uuid.uuid4()
+                        sentence_buffer, file_name_no_ext=str(uuid.uuid4())
                     )
                     audio_info = {
                         "sentence": sentence_buffer,
@@ -440,12 +470,11 @@ class OpenLLMVTuberMain:
             except InterruptedError:
                 print("\nProducer interrupted")
                 interrupted_error_event.set()
-                return  # Exit the function
+                return
             except Exception as e:
-                print(
-                    f"Producer error: Error generating audio for sentence: '{sentence_buffer}'.\n{e}",
-                    "Producer stopped\n",
-                )
+                print(f"Producer error: {str(e)}")
+                print(f"Failed sentence: '{sentence_buffer}'")
+                interrupted_error_event.set()
                 return
             finally:
                 task_queue.put(None)  # Signal end of production
