@@ -19,6 +19,10 @@ def monitor(request):
     request_data = request.get_data(as_text=True)
     # Parse the event in the input
     event = json.loads(request_data)
+    print(event)
+    if 'event' not in event or 'activity' not in event['event']:
+        print('no event or activity found')
+        return 'no event or activity found'
     message = event['event']['activity'][0]
     print(f'message: {message}')
 
