@@ -1,0 +1,42 @@
+version: '3.8'
+
+services:
+  vtuber:
+    build: .
+    ports:
+      - "12393:12393"
+    environment:
+      - HF_ENDPOINT_URL=${HF_ENDPOINT_URL}
+      - HF_TOKEN=${HF_TOKEN}
+      - LLM_API_KEY=${LLM_API_KEY}
+      - PROJECT_ID=${PROJECT_ID}
+      - CDP_API_KEY_NAME=${CDP_API_KEY_NAME}
+      - CDP_API_KEY_PRIVATE_KEY=${CDP_API_KEY_PRIVATE_KEY}
+      - REDIS_URL=redis://redis:6379
+    volumes:
+      - ./models:/app/asr/models
+      - ./cache:/app/cache
+      - ./conf.yaml:/app/conf.yaml
+    depends_on:
+      - redis
+
+  redis:
+    image: redis:alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+  event-monitor:
+    build:
+      context: .
+      dockerfile: Dockerfile.monitor
+    environment:
+      - WEB3_RPC_URL=${WEB3_RPC_URL}
+      - CONTRACT_ADDRESS=${CONTRACT_ADDRESS}
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - redis
+
+volumes:
+  redis_data: 
