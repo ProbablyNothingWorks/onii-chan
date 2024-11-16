@@ -24,7 +24,7 @@ export const Description = () => {
           }}
         >
           <Image
-            src="/hero-image.jpg"
+            src="/idol-anime-oshi-no-ko.jpg.webp"
             alt="Help cultivate and train the next generation of virtual idols!"
             fill
             style={{ objectFit: 'cover' }}
