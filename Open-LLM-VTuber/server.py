@@ -309,7 +309,7 @@ class WebSocketServer:
         )
         self.app.mount("/", StaticFiles(directory="./static", html=True), name="static")
 
-    def run(self, host: str = "127.0.0.1", port: int = 8000, log_level: str = "info"):
+    def run(self, host: str = "0.0.0.0", port: int = 8000, log_level: str = "info"):
         """Runs the FastAPI application using Uvicorn."""
         import uvicorn
 
