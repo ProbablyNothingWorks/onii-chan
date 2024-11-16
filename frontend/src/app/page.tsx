@@ -1,58 +1,50 @@
-import { Box } from '@mui/material';
-import Image from 'next/image';
+// src/app/page.tsx
+"use client";
+
+import { Box, CssBaseline, ThemeProvider, createTheme, Fab } from '@mui/material';
+import { useState } from 'react';
 import styles from './page.module.css';
 import { Mint } from '@/app/component/Mint';
+import { Description } from '@/app/component/Description';
+import Brightness4Icon from '@mui/icons-material/Brightness4';
+import Brightness7Icon from '@mui/icons-material/Brightness7';
 
 export default function Home() {
-  return (
-    <div className={styles.page}>
-      <main className={styles.main}>
-        <Box display='grid' gridTemplateColumns='1fr 1fr' gap={2}>
-          <Box>
-            <Image
-              className={styles.logo}
-              src='/next.svg'
-              alt='Next.js logo'
-              width={180}
-              height={38}
-              priority
-            />
-            <ol>
-              <li>
-                Get started by editing <code>src/app/page.tsx</code>.
-              </li>
-              <li>Save and see your changes instantly.</li>
-            </ol>
+  const [darkMode, setDarkMode] = useState(false);
 
-            <div className={styles.ctas}>
-              <a
-                className={styles.primary}
-                href='https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app'
-                target='_blank'
-                rel='noopener noreferrer'
-              >
-                <Image
-                  className={styles.logo}
-                  src='/vercel.svg'
-                  alt='Vercel logomark'
-                  width={20}
-                  height={20}
-                />
-                Deploy now
-              </a>
-              <a
-                href='https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app'
-                target='_blank'
-                rel='noopener noreferrer'
-                className={styles.secondary}
-              >
-                Read our docs
-              </a>
-            </div>
+  const theme = createTheme({
+    palette: {
+      mode: darkMode ? 'dark' : 'light',
+    },
+  });
+
+  const toggleDarkMode = () => {
+    setDarkMode(!darkMode);
+  };
+
+  return (
+    <ThemeProvider theme={theme}>
+      <CssBaseline />
+      <div className={styles.page}>
+        <main className={styles.main}>
+          <Box display='grid' gridTemplateColumns='1fr 1fr' gap={2}>
+            <Description />
+            <Mint />
           </Box>
-          <Mint />
-        </Box>
-      </main>
-    </div>
+        </main>
+        <Fab 
+          color="primary" 
+          aria-label="toggle theme" 
+          onClick={toggleDarkMode} 
+          style={{
+            position: 'fixed',
+            bottom: '16px',
+            right: '16px',
+          }}
+        >
+          {darkMode ? <Brightness7Icon /> : <Brightness4Icon />}
+        </Fab>
+      </div>
+    </ThemeProvider>
   );
 }
