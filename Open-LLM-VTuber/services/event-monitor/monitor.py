@@ -3,7 +3,8 @@ import json
 import os
 from web3 import Web3
 import redis
-from eth_abi import decode_abi
+from eth_abi.codec import ABICodec
+from eth_abi.registry import registry
 import time
 
 class EventMonitor:
@@ -11,6 +12,7 @@ class EventMonitor:
         self.w3 = Web3(Web3.HTTPProvider(os.getenv('WEB3_RPC_URL')))
         self.contract_address = os.getenv('CONTRACT_ADDRESS')
         self.redis_client = redis.Redis.from_url(os.getenv('REDIS_URL', 'redis://localhost:6379'))
+        self.codec = ABICodec(registry)
         
         # Example event signature for a tip event
         self.tip_event_signature = self.w3.keccak(
@@ -55,7 +57,7 @@ class EventMonitor:
             topics = event['topics']
             
             # Example decoding (adjust based on your event structure)
-            decoded_data = decode_abi(
+            decoded_data = self.codec.decode(
                 ['address', 'uint256', 'string'],
                 bytes.fromhex(data[2:])  # Remove '0x' prefix
             )

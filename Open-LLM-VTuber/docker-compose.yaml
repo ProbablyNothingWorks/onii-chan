@@ -2,7 +2,9 @@ version: '3.8'
 
 services:
   vtuber:
-    build: .
+    build:
+      context: ./services/vtuber
+      dockerfile: Dockerfile
     ports:
       - "12393:12393"
     environment:
@@ -14,9 +16,26 @@ services:
       - CDP_API_KEY_PRIVATE_KEY=${CDP_API_KEY_PRIVATE_KEY}
       - REDIS_URL=redis://redis:6379
     volumes:
-      - ./models:/app/asr/models
-      - ./cache:/app/cache
-      - ./conf.yaml:/app/conf.yaml
+      - ./storage/models:/app/asr/models
+      - ./storage/cache:/app/cache
+      - ./storage/live2d-models:/app/live2d-models
+      - ./storage/static:/app/static
+      - ./storage/prompts:/app/prompts
+      - ./services/vtuber/conf.yaml:/app/conf.yaml
+      - ./shared:/app/shared
+    depends_on:
+      - redis
+
+  event-monitor:
+    build:
+      context: ./services/event-monitor
+      dockerfile: Dockerfile
+    environment:
+      - WEB3_RPC_URL=${WEB3_RPC_URL}
+      - CONTRACT_ADDRESS=${CONTRACT_ADDRESS}
+      - REDIS_URL=redis://redis:6379
+    volumes:
+      - ./shared:/app/shared
     depends_on:
       - redis
 
@@ -26,17 +45,6 @@ services:
       - "6379:6379"
     volumes:
       - redis_data:/data
-
-  event-monitor:
-    build:
-      context: .
-      dockerfile: Dockerfile.monitor
-    environment:
-      - WEB3_RPC_URL=${WEB3_RPC_URL}
-      - CONTRACT_ADDRESS=${CONTRACT_ADDRESS}
-      - REDIS_URL=redis://redis:6379
-    depends_on:
-      - redis
 
 volumes:
   redis_data: 

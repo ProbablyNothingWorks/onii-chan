@@ -5,6 +5,6 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY event_monitor /app/event_monitor
+COPY monitor.py .
 
-CMD ["python", "-m", "event_monitor.monitor"] 
+CMD ["python", "monitor.py"] 
