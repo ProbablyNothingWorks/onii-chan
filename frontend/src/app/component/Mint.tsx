@@ -27,19 +27,21 @@ export const Mint = () => {
   };
 
   return (
-    <Box
-      sx={{
-        position: 'sticky',
-        top: '100px'
-      }}
-    >
-      <Box width='100%'>
+    <Box>
+      <Box width='500px'>
         <video
           src={`video/${model}-${voice}.mp4`}
           autoPlay
           controls
           muted
-          style={{ height: '300px', width: '500px' }}
+          style={{
+            height: '300px',
+            width: '500px',
+            position: 'sticky',
+            top: '100px',
+            borderRadius: 16,
+            marginBottom: 16
+          }}
         />
         <FormControl sx={{ m: 1, minWidth: 120, margin: 0, mr: 2, mb: 2 }}>
           <InputLabel id='demo-simple-select-helper-label'>Model</InputLabel>

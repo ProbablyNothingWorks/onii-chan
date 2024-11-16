@@ -33,12 +33,8 @@ export default function Home() {
       <CssBaseline />
       <div className={styles.page}>
         <main className={styles.main}>
-          <Box
-            display='grid'
-            gridTemplateColumns='1fr 1fr'
-            gap={2}
-            overflow='auto'
-          >
+          {/* <Box display='grid' gridTemplateColumns='1fr 1fr' gap={2}> */}
+          <Box display='flex'>
             <Description />
             <Mint />
           </Box>

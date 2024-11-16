@@ -13,7 +13,8 @@ export const Description = () => {
             position: 'relative',
             height: '400px',
             borderRadius: '16px',
-            mb: 6
+            mb: 6,
+            overflow: 'hidden'
           }}
         >
           <Image
