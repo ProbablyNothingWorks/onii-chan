@@ -6,7 +6,8 @@ import {
   CssBaseline,
   ThemeProvider,
   createTheme,
-  Fab
+  Fab,
+  IconButton
 } from '@mui/material';
 import { useState } from 'react';
 import styles from './page.module.css';
@@ -17,11 +18,14 @@ import { TipETH } from '@/app/component/TipETH';
 import { Description } from '@/app/component/Description';
 import Brightness4Icon from '@mui/icons-material/Brightness4';
 import Brightness7Icon from '@mui/icons-material/Brightness7';
+import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
+import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 
 
 export default function Home() {
   const [darkMode, setDarkMode] = useState(true);
-  const [currentTab, setCurrentTab] = useState(0);  // Add this line
+  const [currentTab, setCurrentTab] = useState(0);
+  const [isRightPanelOpen, setIsRightPanelOpen] = useState(false);
 
   const theme = createTheme({
     palette: {
@@ -37,41 +41,83 @@ export default function Home() {
     setCurrentTab(newValue);
   };
 
+  const toggleRightPanel = () => {
+    setIsRightPanelOpen(!isRightPanelOpen);
+  };
+
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <div className={styles.page}>
         <main className={styles.main}>
-          <Box display='flex' flexDirection='column' width='100%'>
-            <Tabs
-              value={currentTab}
-              onChange={handleTabChange}
-              centered
-              sx={{ mb: 3 }}
+          <Box display='flex' flexDirection='column' width='100%' position='relative'>
+            {/* Description takes full width */}
+            <Description />
+              
+           
+            {/* Overlay panel */}
+            <Box 
+              sx={{ 
+                position: 'fixed',
+                top: 0,
+                right: 0,
+                height: '100vh',
+                backgroundColor: theme.palette.background.paper,
+                boxShadow: isRightPanelOpen ? '-4px 0 8px rgba(0, 0, 0, 0.1)' : 'none',
+                transition: 'all 0.3s ease',
+                transform: isRightPanelOpen ? 'translateX(0)' : 'translateX(100%)',
+                width: '500px',
+                overflowY: 'auto',
+                zIndex: 1000,
+              }}
             >
-              <Tab label="Mint" />
-              <Tab label="Tip Token" />
-              <Tab label="Tip ETH" />
-            </Tabs>
-            
-            <Box display='flex'>
-              <Description />
-              {currentTab === 0 ? <Mint /> : 
-               currentTab === 1 ? <Tip /> : <TipETH />}
+              <Box sx={{ 
+                width: '100%',
+                height: '100%',
+                p: 3,
+              }}>
+                <Tabs
+                  value={currentTab}
+                  onChange={handleTabChange}
+                  centered
+                  sx={{ mb: 3 }}
+                >
+                  <Tab label="Mint" />
+                  <Tab label="Tip Token" />
+                  <Tab label="Tip ETH" />
+                </Tabs>
+                
+                {currentTab === 0 ? <Mint /> : 
+                 currentTab === 1 ? <Tip /> : <TipETH />}
+              </Box>
             </Box>
           </Box>
         </main>
+
         <Fab
           color='primary'
           aria-label='toggle theme'
           onClick={toggleDarkMode}
           style={{
             position: 'fixed',
-            bottom: '16px',
-            right: '16px'
+            bottom: '64px',
+            left: '16px'
           }}
         >
           {darkMode ? <Brightness7Icon /> : <Brightness4Icon />}
+        </Fab>
+
+        <Fab
+          color='primary'
+          aria-label='toggle panel'
+          onClick={toggleRightPanel}
+          style={{
+            position: 'fixed',
+            bottom: '64px',
+            right: '16px'
+          }}
+        >
+          {isRightPanelOpen ? <ChevronRightIcon /> : <ChevronLeftIcon />}
         </Fab>
       </div>
     </ThemeProvider>

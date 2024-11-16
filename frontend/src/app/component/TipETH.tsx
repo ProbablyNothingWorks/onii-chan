@@ -32,7 +32,7 @@ export const TipETH = () => {
   return (
     <Box>
       <Box 
-        width='500px'
+        width='400px'
         sx={{
           position: 'sticky',
           top: '50px',
@@ -43,7 +43,7 @@ export const TipETH = () => {
           alt="But please tip"
           style={{
             height: '300px',
-            width: '500px',
+            width: '400px',
             borderRadius: 8,
             marginBottom: 8,
             objectFit: 'cover',
