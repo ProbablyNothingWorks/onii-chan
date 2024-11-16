@@ -15,6 +15,8 @@ from live2d_model import Live2dModel
 from tts.stream_audio import AudioPayloadPreparer
 import chardet
 from loguru import logger
+import redis.asyncio as aioredis
+from decimal import Decimal
 
 
 class WebSocketServer:
@@ -39,6 +41,22 @@ class WebSocketServer:
         self.connected_clients: List[WebSocket] = []
         self.server_ws_clients: List[WebSocket] = []
         self.open_llm_vtuber_main_config: Dict | None = open_llm_vtuber_main_config
+        self.redis_client = None
+        self.tip_reaction_task = None
+        
+        # Add crypto personality to config if not present
+        if not self.open_llm_vtuber_main_config.get("CRYPTO_PERSONALITY"):
+            self.open_llm_vtuber_main_config["CRYPTO_PERSONALITY"] = """
+            When receiving crypto tips:
+            - For USDC: Be very appreciative and professional, mentioning it's a reliable stablecoin
+            - For ETH: Be excited and talk about the future of web3
+            - For meme coins: Be playfully skeptical and make jokes about their names
+            - For unknown tokens: Be politely confused and question if it's another "rug pull"
+            
+            Always thank the tipper by name (or say "anonymous supporter" if no name given).
+            Keep responses brief (1-2 sentences) to not interrupt ongoing conversations too much.
+            """
+
         self._setup_routes()
         self._mount_static_files()
         self.app.include_router(self.router)
@@ -89,6 +107,56 @@ class WebSocketServer:
         open_llm_vtuber.set_audio_output_func(_play_audio_file)
         return l2d, open_llm_vtuber, audio_preparer
 
+    async def setup_redis(self):
+        """Initialize Redis connection and subscription"""
+        self.redis_client = await aioredis.from_url('redis://localhost')
+        self.pubsub = self.redis_client.pubsub()
+        await self.pubsub.subscribe('crypto_tips')
+        
+    async def handle_tip(self, tip_data: dict, websocket: WebSocket, open_llm_vtuber: OpenLLMVTuberMain):
+        """Process incoming crypto tip and generate VTuber response"""
+        token = tip_data.get('token', 'UNKNOWN')
+        amount = Decimal(tip_data.get('amount', 0))
+        tipper = tip_data.get('tipper', 'anonymous supporter')
+        message = tip_data.get('message', '')
+        
+        prompt = f"""
+        A viewer just sent a tip of {amount} {token}!
+        Tipper: {tipper}
+        {f'Their message: "{message}"' if message else 'They didn't leave a message.'}
+        
+        React to this tip according to your crypto personality. Keep it brief but engaging!
+        """
+        
+        try:
+            await websocket.send_text(
+                json.dumps({"type": "full-text", "text": "💰 Received a crypto tip!"})
+            )
+            
+            # Use conversation_chain but with our custom prompt
+            response = await asyncio.to_thread(
+                open_llm_vtuber.conversation_chain,
+                user_input=prompt
+            )
+            
+            print(f"Responded to {token} tip from {tipper}")
+            
+        except Exception as e:
+            print(f"Error handling tip: {e}")
+
+    async def monitor_tips(self, websocket: WebSocket, open_llm_vtuber: OpenLLMVTuberMain):
+        """Background task to monitor Redis for incoming tips"""
+        try:
+            while True:
+                message = await self.pubsub.get_message(ignore_subscribe_messages=True)
+                if message and message['type'] == 'message':
+                    tip_data = json.loads(message['data'])
+                    await self.handle_tip(tip_data, websocket, open_llm_vtuber)
+                await asyncio.sleep(0.1)  # Prevent busy-waiting
+        except Exception as e:
+            print(f"Error in tip monitor: {e}")
+            # Attempt to reconnect or handle error...
+
     def _setup_routes(self):
         """Sets up the WebSocket and broadcast routes."""
 
@@ -98,6 +166,8 @@ class WebSocketServer:
         @self.app.websocket("/client-ws")
         async def websocket_endpoint(websocket: WebSocket):
             await websocket.accept()
+            await self.setup_redis()  # Initialize Redis connection
+            
             await websocket.send_text(
                 json.dumps({"type": "full-text", "text": "Connection established"})
             )
@@ -107,7 +177,12 @@ class WebSocketServer:
 
             # Initialize components
             l2d, open_llm_vtuber, _ = self._initialize_components(websocket)
-
+            
+            # Start tip monitoring task
+            self.tip_reaction_task = asyncio.create_task(
+                self.monitor_tips(websocket, open_llm_vtuber)
+            )
+            
             await websocket.send_text(
                 json.dumps({"type": "set-model", "text": l2d.model_info})
             )
@@ -227,6 +302,10 @@ class WebSocketServer:
                         print("Unknown data type received.")
 
             except WebSocketDisconnect:
+                if self.tip_reaction_task:
+                    self.tip_reaction_task.cancel()
+                if self.redis_client:
+                    await self.redis_client.close()
                 self.connected_clients.remove(websocket)
                 open_llm_vtuber = None
 
