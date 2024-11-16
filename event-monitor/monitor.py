@@ -121,9 +121,30 @@ class GraphEventMonitor:
             # Convert wei to ETH
             amount_wei = int(tip['amount'])
             amount_eth = float(self.w3.from_wei(amount_wei, 'ether'))
+            
+            # Smart rounding function
+            def smart_round(value):
+                if value == 0:
+                    return 0
+                
+                # Find the first non-zero decimal place
+                decimal_str = f"{value:.18f}"  # Get full precision
+                first_non_zero = -1
+                for i, char in enumerate(decimal_str):
+                    if char == '.':
+                        continue
+                    if char != '0':
+                        first_non_zero = i
+                        break
+                
+                if first_non_zero == -1:  # All zeros
+                    return 0
+                
+                # Round to one digit after the first non-zero digit
+                round_to = max(1, len(decimal_str[:first_non_zero+2].split('.')[1]))
+                return round(value, round_to)
 
-            # Convert timestamp to readable format
-            timestamp = datetime.fromtimestamp(int(tip['blockTimestamp']))
+            amount_eth = smart_round(amount_eth)
 
             # Format event
             tip_event = {
