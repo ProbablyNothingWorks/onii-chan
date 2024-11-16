@@ -23,3 +23,6 @@ steps:
   #   dir: 'frontend'
 
 timeout: '1800s' # Set build timeout to 30 minutes
+
+options:
+  defaultLogsBucketBehavior: REGIONAL_USER_OWNED_BUCKET
