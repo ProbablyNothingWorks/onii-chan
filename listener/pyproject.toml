@@ -1,0 +1,20 @@
+[tool.poetry]
+name = "listener"
+version = "0.1.0"
+description = ""
+authors = ["akirawuc <stu970029@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+web3 = "^6.2.0"
+itsdangerous = "^2.1.2"
+cryptography = "^41.0.1"
+requests = "^2.31.0"
+pyyaml = "^6.0"
+functions-framework = "^3.4.0"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
