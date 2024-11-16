@@ -10,6 +10,7 @@ import { getConfig } from './wagmi'; // your import path may vary
 import { RainbowKitProvider } from '@rainbow-me/rainbowkit';
 import { ThemeProvider } from '@mui/material';
 import { createTheme } from '@mui/material';
+import { SnackbarProvider } from 'notistack';
 
 const darkTheme = createTheme({
   palette: {
@@ -25,17 +26,19 @@ export function Providers(props: {
   const [queryClient] = useState(() => new QueryClient());
 
   return (
-    <ThemeProvider theme={darkTheme}>
-      <WagmiProvider config={config} initialState={props.initialState}>
-        <QueryClientProvider client={queryClient}>
-          <OnchainKitProvider
-            apiKey={process.env.NEXT_PUBLIC_ONCHAINKIT_API_KEY}
-            chain={baseSepolia} // add baseSepolia for testing
-          >
-            <RainbowKitProvider>{props.children}</RainbowKitProvider>
-          </OnchainKitProvider>
-        </QueryClientProvider>
-      </WagmiProvider>
-    </ThemeProvider>
+    <SnackbarProvider>
+      <ThemeProvider theme={darkTheme}>
+        <WagmiProvider config={config} initialState={props.initialState}>
+          <QueryClientProvider client={queryClient}>
+            <OnchainKitProvider
+              apiKey={process.env.NEXT_PUBLIC_ONCHAINKIT_API_KEY}
+              chain={baseSepolia} // add baseSepolia for testing
+            >
+              <RainbowKitProvider>{props.children}</RainbowKitProvider>
+            </OnchainKitProvider>
+          </QueryClientProvider>
+        </WagmiProvider>
+      </ThemeProvider>
+    </SnackbarProvider>
   );
 }
