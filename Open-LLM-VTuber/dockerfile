@@ -29,9 +29,9 @@ RUN pip install --no-cache-dir -r /tmp/requirements.txt
 
 # Install common Python packages
 RUN pip install -U funasr modelscope huggingface_hub
-RUN pip install pywhispercpp
 RUN pip install torch torchaudio
 RUN pip install edge-tts azure-cognitiveservices-speech py3-tts
+#RUN pip install --only-binary=:all: pywhispercpp
 
 # MeloTTS installation
 WORKDIR /opt/MeloTTS
