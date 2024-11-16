@@ -72,7 +72,7 @@ export const Description = () => {
                 mt: 3
               }}
             >
-              頑張ってよ!
+              頑張ってね!
             </Typography>
           </Box>
         </Paper>
