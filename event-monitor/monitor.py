@@ -198,7 +198,7 @@ def get_ens(address):
         if 'entities' in data and data['entities']:
             for entity in data['entities']:
                 if entity.get('name'):
-                    return entity['name']
+                    return entity['name'].split('.')[0]
         
         return address
     except requests.RequestException as e:
