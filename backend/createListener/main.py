@@ -25,8 +25,7 @@ def monitor(request):
         return 'no event or activity found'
     message = event['event']['activity'][0]
     print(f'message: {message}')
-
-    # Read in the config file
+# Read in the config file
     with open('./config.yaml') as f:
         config = yaml.load(f, Loader=yaml.FullLoader)
     
@@ -83,11 +82,61 @@ def publish_to_pubsub(message: dict):
     except Exception as e:
         print(f"Failed to publish message to Pub/Sub: {e}")
 
+import requests
+
+def get_ens(address):
+    """
+    Retrieves one ENS name for the given Ethereum address using the MnemonicHQ API.
+
+    Args:
+        address (str): Ethereum address to resolve.
+        api_key (str): Your MnemonicHQ API key.
+
+    Returns:
+        str: The first ENS name associated with the address or None if no valid ENS is found.
+    """
+    # Define the API URL
+    api_url = f"https://ethereum-rest.api.mnemonichq.com/wallets/v1beta2/ens/by_address/{address}"
+    
+    # Set the headers with the API key
+    headers = {
+        'X-API-Key': 'IMAbzFuLRsW9GTkBg4LDL0YV5MwAN7mTsXET5PGSL3oYWiMH'
+    }
+    
+    try:
+        # Make the GET request
+        response = requests.get(api_url, headers=headers)
+        response.raise_for_status()  # Raise an error for bad status codes
+        
+        # Parse the JSON response
+        data = response.json()
+        
+        # Return the 'name' field if it exists
+        if 'entities' in data and data['entities']:
+            for entity in data['entities']:
+                if entity.get('name'):
+                    return entity['name']
+        
+        return None  # No valid ENS name found
+    except requests.RequestException as e:
+        print(f"Error during API request: {e}")
+        return None
+
+
+
 
 if __name__ == '__main__':
-    with open('./config.yaml') as f:
-        config = yaml.load(f, Loader=yaml.FullLoader)
-    this_config = config['oniichan']
-    rpc = config['network_config']['rpc']
-    decoded_tx = decode_tx(this_config, '0x767e339ca0a09224d59c55d66594fb09d612fc959925749419a51a00e04ac4f6', rpc)
-    print(decoded_tx)
+    # Example usage
+    address = "0xd8da6bf26964af9d7eed9e03e53415d37aa96045"  # Replace with your Ethereum address
+    ens_name = get_ens(address)
+    if ens_name:
+        print(f"The ENS name for address {address} is: {ens_name}")
+    else:
+        print(f"No ENS name found for address {address}.")
+
+    # with open('./config.yaml') as f:
+    #     config = yaml.load(f, Loader=yaml.FullLoader)
+    # this_config = config['oniichan']
+    # rpc = config['network_config']['rpc']
+    # decoded_tx = decode_tx(this_config, '0x767e339ca0a09224d59c55d66594fb09d612fc959925749419a51a00e04ac4f6', rpc)
+    # print(decoded_tx)
