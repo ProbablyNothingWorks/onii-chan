@@ -127,13 +127,10 @@ class GraphEventMonitor:
 
             # Format event
             tip_event = {
-                "type": "tip",
-                "session_id": "default",
                 "amount": amount_eth,
-                "currency": "ETH",
-                "token_id": int(tip['tokenId']),
+                "token": "ETH",
                 "message": tip['message'],
-                "from_address": get_ens(tip['from'])
+                "tipper": get_ens(tip['from'])
             }
 
             print(f"Formatted event: {tip_event}")
