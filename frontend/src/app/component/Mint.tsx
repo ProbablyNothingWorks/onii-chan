@@ -9,23 +9,32 @@ import {
   SelectChangeEvent,
   Button,
   TextField,
-  CircularProgress
+  CircularProgress,
+  Link
 } from '@mui/material';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useState } from 'react';
-import { useAccount, useWriteContract } from 'wagmi';
+import {
+  useAccount,
+  useWaitForTransactionReceipt,
+  useWriteContract
+} from 'wagmi';
 import { abi } from '../../abi';
 import { useSnackbar } from 'notistack';
+import { shortenAddress } from '@/util/shortenAddress';
 
 export const Mint = () => {
   const { data: hash, writeContract, isPending } = useWriteContract();
-  const { address, status } = useAccount();
-
+  const { address, status, chain } = useAccount();
+  const { isLoading: isConfirming, isSuccess: isConfirmed } =
+    useWaitForTransactionReceipt({
+      hash
+    });
   const [model, setModel] = useState('shizuku-local');
   const [voice, setVoice] = useState('1');
   const [prompt, setPrompt] = useState('');
   const { enqueueSnackbar } = useSnackbar();
-  console.log(status);
+
   const handleModelChange = (event: SelectChangeEvent) => {
     setModel(event.target.value);
   };
@@ -96,6 +105,7 @@ export const Mint = () => {
         <Box display='flex' justifyContent='center'>
           {status === 'connected' ? (
             <Button
+              sx={{ height: '40px' }}
               variant='contained'
               onClick={() => {
                 const data = {
@@ -104,17 +114,19 @@ export const Mint = () => {
                   prompt
                 };
                 try {
+                  console.log('try');
                   writeContract({
                     abi,
                     address: '0x9fA0DA29B88cc1479D28CEaD5a12fF498528a9D0',
                     functionName: 'createOnii',
                     args: [address, null, JSON.stringify(data)]
                   });
-                  enqueueSnackbar({ message: 'Minted', variant: 'success' });
+
+                  console.log('success');
                 } catch (e) {}
               }}
             >
-              {isPending ? (
+              {isConfirming ? (
                 <CircularProgress color='inherit' size={16} />
               ) : (
                 'Mint'
@@ -124,6 +136,11 @@ export const Mint = () => {
             <ConnectButton />
           )}
         </Box>
+        {isConfirmed && hash && (
+          <Link
+            href={`${chain?.blockExplorers.default.url}/tx/${hash}`}
+          >{`${shortenAddress(hash)}`}</Link>
+        )}
       </Box>
     </Box>
   );
