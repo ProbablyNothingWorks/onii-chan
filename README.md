@@ -8,3 +8,6 @@ Each idol starts as a free spirit. They can go on social media if you give them 
 
 ## Tech Stack
 The tech stack is instrumented as a container so it can be deployed anywhere. Agent specific data are stored in its own smart contract and interacts with the container via a listener. Additional methods can be added to the smart contract, which the model can respond to. In the future, idol history can also be stored onchain and restored instantly anywhere.
+
+## Collab
+Want to contribute, collaborate, or find out more? Follow and DM us at https://x.com/Prob0Wrks
