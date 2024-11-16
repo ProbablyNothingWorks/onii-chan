@@ -5,6 +5,7 @@ from .memGPT import LLM as MemGPTLLM
 from .fake_llm import LLM as FakeLLM
 from .claude import LLM as ClaudeLLM
 from .hfllama import LLM as HFLlamaLLM
+from .hfendpoint import LLM as HFEndpointLLM
 
 
 class LLMFactory:
@@ -52,6 +53,14 @@ class LLMFactory:
             return HFLlamaLLM(
                 system=kwargs.get("SYSTEM_PROMPT"),
                 base_url=kwargs.get("BASE_URL"),
+                model=kwargs.get("MODEL"),
+                llm_api_key=kwargs.get("LLM_API_KEY"),
+                verbose=kwargs.get("VERBOSE", False),
+            )
+        elif llm_provider == "hfendpoint":
+            return HFEndpointLLM(
+                system=kwargs.get("SYSTEM_PROMPT"),
+                base_url=kwargs.get("BASE_URL"),  # This would be the endpoint URL
                 model=kwargs.get("MODEL"),
                 llm_api_key=kwargs.get("LLM_API_KEY"),
                 verbose=kwargs.get("VERBOSE", False),

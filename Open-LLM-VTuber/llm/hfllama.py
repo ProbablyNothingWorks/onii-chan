@@ -5,18 +5,18 @@ from .llm_interface import LLMInterface
 class LLM(LLMInterface):
     def __init__(
         self,
-        system: str = None,
-        base_url: str = None,
         model: str = "TinyLlama/TinyLlama-1.1B-Chat-v1.0",
         llm_api_key: str = None,
+        system: str = None,
         verbose: bool = False,
+        base_url: str = None,  
+        project_id: str = None,  
+        organization_id: str = None,  
+        **kwargs  
     ):
-        """
-        Initialize HuggingFace LLM client.
-        """
-        self.system = system
         self.model = model
         self.verbose = verbose
+        self.system = system
         
         # Initialize HF client
         self.client = InferenceClient(
@@ -24,55 +24,63 @@ class LLM(LLMInterface):
             token=llm_api_key
         )
         
-        # Store conversation history
+        # Initialize messages with system prompt if provided
         self.messages = []
+        if system:
+            self.messages.append({"role": "system", "content": system})
 
     def chat_iter(self, prompt: str) -> Iterator[str]:
-        """Send message to model and yield response tokens."""
+        """
+        Send message to model and yield response tokens.
+        Falls back to non-streaming if streaming is not supported.
+        """
         self.messages.append({"role": "user", "content": prompt})
         
         try:
-            formatted_prompt = self._format_chat()
-            response_text = ""
-            
-            for token in self.client.text_generation(
-                formatted_prompt,
-                max_new_tokens=128,
-                temperature=0.7,
-                stream=True,
-                stop=["</s>", "[INST]"],
-                return_full_text=False
-            ):
-                response_text += token
-                yield token
+            try:
+                # First try streaming
+                for chunk in self.client.chat_completion(
+                    self.messages,
+                    stream=True,
+                    max_tokens=128,
+                    temperature=0.7
+                ):
+                    token = chunk.choices[0].delta.content
+                    if token:
+                        yield token
+                        
+            except Exception as stream_error:
+                if self.verbose:
+                    print(f"Streaming not supported, falling back to non-streaming: {str(stream_error)}")
+                    
+                # Fallback to non-streaming
+                response = self.client.chat_completion(
+                    self.messages,
+                    stream=False,
+                    max_tokens=128,
+                    temperature=0.7
+                )
+                content = response.choices[0].message.content
+                # Yield the entire response as one token
+                yield content
                 
-            self.messages.append({
-                "role": "assistant", 
-                "content": response_text.strip()
-            })
+            # Get the final response text (either from streaming or non-streaming)
+            if self.messages[-1]["role"] == "user":  # Make sure we haven't added the response yet
+                response_text = content if 'content' in locals() else None
+                if not response_text:
+                    # Try to reconstruct from streaming if needed
+                    response_text = "".join(token for token in response.choices[0].message.content)
+                    
+                self.messages.append({
+                    "role": "assistant",
+                    "content": response_text
+                })
                 
         except Exception as e:
             if self.verbose:
                 print(f"Error in chat: {str(e)}")
             raise
 
-    def _format_chat(self) -> str:
-        """Format messages for chat."""
-        formatted = ""
-        if self.system:
-            formatted = f"<s>[INST] <<SYS>>\n{self.system}\n<</SYS>>\n\n"
-            
-        for i, msg in enumerate(self.messages):
-            if msg["role"] == "user":
-                if i == 0:
-                    formatted += f"<s>[INST] {msg['content']} [/INST]"
-                else:
-                    formatted += f"{msg['content']} [/INST]"
-            elif msg["role"] == "assistant":
-                formatted += f"{msg['content']}</s>"
-        return formatted
-
     def handle_interrupt(self, heard_response: str) -> None:
-        """Handle interruption by updating the last assistant message."""
         if self.messages and self.messages[-1]["role"] == "assistant":
             self.messages[-1]["content"] = heard_response

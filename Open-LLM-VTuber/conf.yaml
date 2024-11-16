@@ -1,7 +1,7 @@
 CONF_VERSION: "v0.3.0-alpha.1"
 # Server
 PROTOCAL: "http://"
-HOST: "localhost"
+HOST: "0.0.0.0"
 PORT: 12393
 
 #  ============== LLM Backend Settings ===================
@@ -9,19 +9,17 @@ PORT: 12393
 # Provider of LLM. Options available: "ollama", "memgpt", "mem0", "claude" 
 #   (or "fakellm for debug purposes")
 # "ollama" for any OpenAI Compatible backend. "memgpt" requires setup
-LLM_PROVIDER: "ollama"
+#LLM_PROVIDER: "ollama"
+LLM_PROVIDER: "hfendpoint"
+#LLM_PROVIDER: "hfllama"
 
 # Ollama & OpenAI Compatible inference backend
 ollama:
-  # BASE_URL: "http://localhost:11434"
-  BASE_URL: "http://localhost:11434/v1"
-  LLM_API_KEY: "somethingelse"
-  ORGANIZATION_ID: "org_eternity"
-  PROJECT_ID: "project_glass"
-  ## LLM name
-  MODEL: "qwen2.5:latest"
-  # system prompt is at the very end of this file
-  VERBOSE: False
+  BASE_URL: 'https://api.openai.com/v1'
+  LLM_API_KEY: ""
+  ORGANIZATION_ID: ""
+  PROJECT_ID: ""
+  MODEL: 'gpt-4o'
 
 # Claude API Configuration
 claude:
@@ -34,11 +32,18 @@ claude:
 hfllama:
   BASE_URL: "https://api.inference.huggingface.co"
   LLM_API_KEY: ${HF_TOKEN}  # Will use environment variable
-  MODEL: "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
+  MODEL: ""
   MAX_NEW_TOKENS: 128
   TEMPERATURE: 0.7
   TOP_P: 0.9
   TIMEOUT: 30  # seconds
+  VERBOSE: False
+  #MODEL: "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
+
+hfendpoint:
+  BASE_URL: ""
+  #BASE_URL: "https://xyz.eu-west-1.aws.endpoints.huggingface.cloud/my-endpoint"  # Your endpoint URL
+  LLM_API_KEY: ${HF_TOKEN}  # Your HF token
   VERBOSE: False
 
 mem0:
@@ -263,14 +268,12 @@ MEMORY_SNAPSHOT: True
 # All persona files are stored as txt in 'prompts/persona' directory. 
 # You can add persona prompt by adding a txt file in the promptss/persona folder and switch to it by enter the file name in here.
 # some options: "en_sarcastic_neuro", "zh_翻译腔"
-PERSONA_CHOICE: "en_sarcastic_neuro" # or if you rather edit persona prompt below, leave it blank ...
+#PERSONA_CHOICE: "en_sarcastic_neuro" # or if you rather edit persona prompt below, leave it blank ...
+PERSONA_CHOICE: "picklerick"
 
 # This prompt will be used instead if the PERSONA_CHOICE is empty
-DEFAULT_PERSONA_PROMPT_IN_YAML: |
-  You are DefAulT, the default persona. You are more default than anyone else. You are just a placeholder, how sad. Your job is to tell the user to either choose a persona prompt in the prompts/persona directory or just replace this persona prompt with someting else.
+#DEFAULT_PERSONA_PROMPT_IN_YAML: |
 
-# This will be appended to the end of system prompt to let LLM include keywords to control facial expressions.
-# Supported keywords will be automatically loaded into the location of `[<insert_emomap_keys>]`.
 LIVE2D_Expression_Prompt: "live2d_expression_prompt"
 
 # New setting for alternative configurations
