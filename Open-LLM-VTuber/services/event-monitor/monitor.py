@@ -1,95 +1,154 @@
 import asyncio
-import json
-import os
 from web3 import Web3
+import os
+import json
 import redis
-from eth_abi.codec import ABICodec
-from eth_abi.registry import registry
-import time
+from hexbytes import HexBytes
 
 class EventMonitor:
     def __init__(self):
-        self.w3 = Web3(Web3.HTTPProvider(os.getenv('WEB3_RPC_URL')))
-        self.contract_address = os.getenv('CONTRACT_ADDRESS')
+        self.w3 = Web3(Web3.HTTPProvider(
+            os.getenv('WEB3_RPC_URL', 'https://base-sepolia.g.alchemy.com/v2/jRDWgvakZFvscXO7eOIZKItOQ_FpnfKd'),
+            request_kwargs={'timeout': 30}
+        ))
+        self.contract_address = Web3.to_checksum_address('0x9fa0da29b88cc1479d28cead5a12ff498528a9d0')
         self.redis_client = redis.Redis.from_url(os.getenv('REDIS_URL', 'redis://localhost:6379'))
-        self.codec = ABICodec(registry)
-        
-        # Example event signature for a tip event
-        self.tip_event_signature = self.w3.keccak(
-            text="TipReceived(address,uint256,string)"
-        ).hex()
+
+        if not self.w3.is_connected():
+            raise Exception("Failed to connect to RPC endpoint")
+
+        try:
+            current_block = self.w3.eth.block_number
+            print(f"Successfully connected. Current block: {current_block}")
+        except Exception as e:
+            raise Exception(f"Failed to get current block: {str(e)}")
 
     async def monitor_events(self):
         print("Starting event monitor...")
-        last_block = None
-
+        stored_block = None
+        
         while True:
             try:
-                current_block = self.w3.eth.block_number
-                
-                if last_block is None:
-                    last_block = current_block - 1
+                try:
+                    current_block = self.w3.eth.block_number
+                except Exception as e:
+                    print(f"Error getting block number: {str(e)}")
+                    await asyncio.sleep(5)
+                    continue
 
-                # Get new events
-                events = self.w3.eth.get_logs({
-                    'fromBlock': last_block + 1,
-                    'toBlock': current_block,
-                    'address': self.contract_address,
-                    'topics': [self.tip_event_signature]
-                })
+                if stored_block is None:
+                    stored_block = current_block - 1
+                    print(f"Starting from block {stored_block}")
 
-                for event in events:
-                    await self.process_event(event)
+                if stored_block >= current_block:
+                    await asyncio.sleep(5)
+                    continue
 
-                last_block = current_block
-                
-                # Sleep for a bit before next check
-                await asyncio.sleep(5)  # Check every 5 seconds
+                target_block = stored_block + 1
+                print(f"Checking block {target_block}")
+
+                try:
+                    logs = self.w3.eth.get_logs({
+                        'fromBlock': target_block,
+                        'toBlock': target_block,
+                        'address': self.contract_address
+                    })
+                except Exception as e:
+                    print(f"Error getting logs for block {target_block}: {str(e)}")
+                    await asyncio.sleep(5)
+                    continue
+
+                for log in logs:
+                    try:
+                        await self.process_event(log)
+                    except Exception as e:
+                        print(f"Error processing event: {str(e)}")
+                        continue
+
+                stored_block = target_block
 
             except Exception as e:
-                print(f"Error monitoring events: {e}")
-                await asyncio.sleep(10)  # Wait longer on error
+                print(f"Loop error: {str(e)}")
+                await asyncio.sleep(5)
+                continue
+
+            await asyncio.sleep(2)
+
+    def hex_to_address(self, hex_data):
+        """Safely convert hex data to address."""
+        if isinstance(hex_data, HexBytes):
+            hex_str = hex_data.hex()
+        else:
+            hex_str = str(hex_data)
+        
+        # Take the last 40 characters (20 bytes) of the hex string
+        address = '0x' + hex_str[-40:]
+        return Web3.to_checksum_address(address)
 
     async def process_event(self, event):
         try:
-            # Decode the event data
-            data = event['data']
-            topics = event['topics']
+            # Print raw event for debugging
+            print("\nProcessing event:")
+            print(f"Topics: {[t.hex() if isinstance(t, HexBytes) else t for t in event['topics']]}")
+            print(f"Data: {event['data'].hex() if isinstance(event['data'], HexBytes) else event['data']}")
             
-            # Example decoding (adjust based on your event structure)
-            decoded_data = self.codec.decode(
-                ['address', 'uint256', 'string'],
-                bytes.fromhex(data[2:])  # Remove '0x' prefix
-            )
+            # Extract indexed parameters from topics
+            from_address = self.hex_to_address(event['topics'][1])
+            token_id = int(event['topics'][2].hex(), 16)
             
-            tipper_address = decoded_data[0]
-            amount = decoded_data[1]
-            username = decoded_data[2]
+            # Decode data field
+            data = event['data'].hex() if isinstance(event['data'], HexBytes) else event['data']
+            if data.startswith('0x'):
+                data = data[2:]
+            
+            # Extract amount (first 32 bytes)
+            amount = int(data[:64], 16)
+            
+            # Extract message from the remaining data
+            try:
+                # Skip token address (32 bytes) and get to string data
+                string_offset = int(data[128:192], 16)  # Get string offset
+                string_start = string_offset * 2  # Convert to hex string position
+                string_length = int(data[string_start:string_start+64], 16)  # Get string length
+                message_start = string_start + 64
+                message = bytes.fromhex(data[message_start:message_start+string_length*2]).decode('utf-8')
+            except Exception as e:
+                print(f"Error decoding message: {e}")
+                message = ""
 
-            # Create message for VTuber
-            message = {
+            # Format event
+            tip_event = {
                 "type": "tip",
-                "session_id": "default",  # You might want to handle this differently
-                "amount": self.w3.from_wei(amount, 'ether'),
+                "session_id": "default",
+                "amount": float(self.w3.from_wei(amount, 'ether')),
                 "currency": "ETH",
-                "username": username,
-                "wallet_address": tipper_address
+                "token_id": token_id,
+                "message": message
             }
+
+            print(f"Formatted event: {tip_event}")
 
             # Publish to Redis
             self.redis_client.publish(
                 'vtuber_events',
-                json.dumps(message)
+                json.dumps(tip_event)
             )
             
-            print(f"Published tip event: {message}")
+            print(f"Published event successfully")
 
         except Exception as e:
-            print(f"Error processing event: {e}")
+            print(f"Error in process_event: {str(e)}")
+            print(f"Raw event data: {event}")
+            raise e
 
 async def main():
-    monitor = EventMonitor()
-    await monitor.monitor_events()
+    while True:
+        try:
+            monitor = EventMonitor()
+            await monitor.monitor_events()
+        except Exception as e:
+            print(f"Fatal error, restarting in 5 seconds: {str(e)}")
+            await asyncio.sleep(5)
 
 if __name__ == "__main__":
-    asyncio.run(main()) 
+    asyncio.run(main())
