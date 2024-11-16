@@ -13,9 +13,11 @@ import styles from './page.module.css';
 import { Tabs, Tab } from '@mui/material';
 import { Mint } from '@/app/component/Mint';
 import { Tip } from '@/app/component/Tip';
+import { TipETH } from '@/app/component/TipETH';
 import { Description } from '@/app/component/Description';
 import Brightness4Icon from '@mui/icons-material/Brightness4';
 import Brightness7Icon from '@mui/icons-material/Brightness7';
+
 
 export default function Home() {
   const [darkMode, setDarkMode] = useState(true);
@@ -48,12 +50,14 @@ export default function Home() {
               sx={{ mb: 3 }}
             >
               <Tab label="Mint" />
-              <Tab label="Tip" />
+              <Tab label="Tip Token" />
+              <Tab label="Tip ETH" />
             </Tabs>
             
             <Box display='flex'>
               <Description />
-              {currentTab === 0 ? <Mint /> : <Tip />}
+              {currentTab === 0 ? <Mint /> : 
+               currentTab === 1 ? <Tip /> : <TipETH />}
             </Box>
           </Box>
         </main>
