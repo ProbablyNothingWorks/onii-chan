@@ -140,7 +140,7 @@ class GraphEventMonitor:
 
             # Publish to Redis
             self.redis_client.publish(
-                'vtuber_events',
+                'crypto_tips',
                 json.dumps(tip_event)
             )
             
