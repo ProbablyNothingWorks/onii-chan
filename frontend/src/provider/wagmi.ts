@@ -12,6 +12,7 @@ export function getConfig() {
         version: '4'
       })
     ],
+
     storage: createStorage({
       storage: cookieStorage
     }),

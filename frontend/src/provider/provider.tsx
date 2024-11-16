@@ -7,6 +7,7 @@ import { type ReactNode, useState } from 'react';
 import { type State, WagmiProvider } from 'wagmi';
 
 import { getConfig } from './wagmi'; // your import path may vary
+import { RainbowKitProvider } from '@rainbow-me/rainbowkit';
 
 export function Providers(props: {
   children: ReactNode;
@@ -22,7 +23,7 @@ export function Providers(props: {
           apiKey={process.env.NEXT_PUBLIC_ONCHAINKIT_API_KEY}
           chain={baseSepolia} // add baseSepolia for testing
         >
-          {props.children}
+          <RainbowKitProvider>{props.children}</RainbowKitProvider>
         </OnchainKitProvider>
       </QueryClientProvider>
     </WagmiProvider>
