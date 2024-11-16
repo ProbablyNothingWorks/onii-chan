@@ -7,6 +7,7 @@ import ssl
 from web3 import Web3
 from datetime import datetime
 
+
 class GraphEventMonitor:
     def __init__(self):
         self.graph_url = "https://api.studio.thegraph.com/query/12344/onii-chan/version/latest"
@@ -14,11 +15,13 @@ class GraphEventMonitor:
         self.w3 = Web3()
         self.blocks_per_query = 2
         self.poll_interval = 5
+        self.alchemy_url = os.getenv('ALCHEMY_URL', 'https://base-sepolia.g.alchemy.com/v2/docs-demo')
         
         # Create SSL context
         self.ssl_context = ssl.create_default_context()
         self.ssl_context.check_hostname = False
         self.ssl_context.verify_mode = ssl.CERT_NONE
+
 
     async def make_request(self, query):
         async with aiohttp.ClientSession() as session:
@@ -146,10 +149,13 @@ class GraphEventMonitor:
 
             amount_eth = smart_round(amount_eth)
 
+            # Get token symbol
+            token_symbol = get_token_symbol(tip['tokenAddress'])
+
             # Format event
             tip_event = {
                 "amount": amount_eth,
-                "token": "ETH",
+                "token": token_symbol,
                 "message": tip['message'],
                 "tipper": get_ens(tip['from'])
             }
@@ -199,6 +205,40 @@ def get_ens(address):
         print(f"Error during API request: {e}")
         return None
 
+def get_token_symbol(token_address):
+    """
+    Get token symbol from Alchemy API with caching.
+    Returns "ETH" for null address or if API call fails.
+    """
+    # Check for native ETH
+    if not token_address or token_address == "0x0000000000000000000000000000000000000000":
+        return "ETH"
+
+    try:
+        payload = {
+            "id": 1,
+            "jsonrpc": "2.0",
+            "method": "alchemy_getTokenMetadata",
+            "params": [token_address]
+        }
+        headers = {
+            "accept": "application/json",
+            "content-type": "application/json"
+        }
+        
+        response = requests.post('https://base-sepolia.g.alchemy.com/v2/jRDWgvakZFvscXO7eOIZKItOQ_FpnfKd', json=payload, headers=headers)
+        response.raise_for_status()
+        
+        data = response.json()
+        if "result" in data and "symbol" in data["result"]:
+            return data["result"]["symbol"]
+        return "UNKNOWN"
+        
+    except Exception as e:
+        print(f"Error fetching token metadata for {token_address}: {e}")
+        return "UNKNOWN"
+
+
 
 async def main():
     while True:
@@ -210,4 +250,5 @@ async def main():
             await asyncio.sleep(5)
 
 if __name__ == "__main__":
+    # print(get_token_symbol('0x036CbD53842c5426634e7929541eC2318f3dCF7e'))
     asyncio.run(main())
