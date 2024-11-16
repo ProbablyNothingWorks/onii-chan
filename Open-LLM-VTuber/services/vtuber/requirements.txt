@@ -2,6 +2,7 @@ pyyaml
 requests
 websocket-client
 transformers
+transformers[agents]
 rich
 loguru
 numpy
@@ -20,5 +21,7 @@ httpx
 faster_whisper
 chardet
 anthropic>=0.18.0
---only-binary=:all: pywhispercpp
 huggingface_hub
+google-cloud-pubsub
+web3>=6.0.0
+google-cloud-pubsub>=2.0.0
