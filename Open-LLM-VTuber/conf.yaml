@@ -311,3 +311,8 @@ NFT_TIERS:
   - tier: 3
     name: "Legendary Supporter"
     min_amount: 100
+
+# === Pub/Sub Settings ===
+PUBSUB:
+  TYPE: "redis"
+  URL: "redis://redis:6379"  # Docker service name

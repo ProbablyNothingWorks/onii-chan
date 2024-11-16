@@ -44,7 +44,14 @@ class WebSocketServer:
         self.server_ws_clients: List[WebSocket] = []
         self.open_llm_vtuber_main_config: Dict | None = open_llm_vtuber_main_config
         self.active_sessions: Dict[str, OpenLLMVTuberMain] = {}
-        self.pubsub = PubSubClient()
+        
+        # Initialize Pub/Sub client with Google Cloud settings
+        pubsub_config = open_llm_vtuber_main_config.get("PUBSUB", {})
+        self.pubsub = PubSubClient(
+            project_id=pubsub_config.get("PROJECT_ID"),
+            subscription_id=pubsub_config.get("SUBSCRIPTION_ID")
+        )
+        
         self.background_tasks = BackgroundTasks()
         
         # Initialize Web3 connection

@@ -22,3 +22,6 @@ faster_whisper
 chardet
 anthropic>=0.18.0
 huggingface_hub
+google-cloud-pubsub
+web3>=6.0.0
+google-cloud-pubsub>=2.0.0
