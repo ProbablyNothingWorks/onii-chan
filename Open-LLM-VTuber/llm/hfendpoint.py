@@ -46,7 +46,7 @@ class LLM(LLMInterface):
             chat_completion = self.client.chat.completions.create(
                 model="tgi",  # Required model name for TGI endpoints
                 messages=messages,
-                temperature=0.7,
+                temperature=0.9,
                 max_tokens=150,
                 stream=True
             )

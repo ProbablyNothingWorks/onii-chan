@@ -17,6 +17,7 @@ import chardet
 from loguru import logger
 import redis.asyncio as aioredis
 from decimal import Decimal
+from prompts.crypto_reactions import get_token_specific_reactions, format_tip_response
 
 
 class WebSocketServer:
@@ -44,19 +45,6 @@ class WebSocketServer:
         self.redis_client = None
         self.tip_reaction_task = None
         
-        # Add crypto personality to config if not present
-        if not self.open_llm_vtuber_main_config.get("CRYPTO_PERSONALITY"):
-            self.open_llm_vtuber_main_config["CRYPTO_PERSONALITY"] = """
-            When receiving crypto tips:
-            - For USDC: Be very appreciative and professional, mentioning it's a reliable stablecoin
-            - For ETH: Be excited and talk about the future of web3
-            - For meme coins: Be playfully skeptical and make jokes about their names
-            - For unknown tokens: Be politely confused and question if it's another "rug pull"
-            
-            Always thank the tipper by name (or say "anonymous supporter" if no name given).
-            Keep responses brief (1-2 sentences) to not interrupt ongoing conversations too much.
-            """
-
         self._setup_routes()
         self._mount_static_files()
         self.app.include_router(self.router)
@@ -109,38 +97,48 @@ class WebSocketServer:
 
     async def setup_redis(self):
         """Initialize Redis connection and subscription"""
-        self.redis_client = await aioredis.from_url('redis://localhost')
+        print("Setting up Redis connection...")  # Debug print
+        self.redis_client = await aioredis.from_url('redis://172.25.1.196')
         self.pubsub = self.redis_client.pubsub()
         await self.pubsub.subscribe('crypto_tips')
+        print("Redis subscription established")  # Debug print
         
     async def handle_tip(self, tip_data: dict, websocket: WebSocket, open_llm_vtuber: OpenLLMVTuberMain):
         """Process incoming crypto tip and generate VTuber response"""
+        print(f"\n=== Processing Tip ===\nData: {tip_data}")
+        
         token = tip_data.get('token', 'UNKNOWN')
         amount = Decimal(tip_data.get('amount', 0))
         tipper = tip_data.get('tipper', 'anonymous supporter')
         message = tip_data.get('message', '')
         
-        prompt = f"""
-        A viewer just sent a tip of {amount} {token}!
-        Tipper: {tipper}
-        {f'Their message: "{message}"' if message else 'They didn't leave a message.'}
+        # Get the base reaction from crypto_reactions
+        tip_reaction = format_tip_response(token, float(amount))
         
-        React to this tip according to your crypto personality. Keep it brief but engaging!
-        """
-        
+        # Create a context-aware prompt that maintains character consistency
+        user_prompt = f"""
+[Event: Received a crypto tip]
+Tip Amount: {amount} {token}
+From: {tipper}
+{f'Their Message: "{message}"' if message else ''}
+
+Base Reaction: {tip_reaction}
+
+Respond to this tip while maintaining your character's personality. Incorporate elements from the base reaction but express them in your own unique way. If they included a message, acknowledge it briefly.
+"""
+
         try:
-            await websocket.send_text(
-                json.dumps({"type": "full-text", "text": "💰 Received a crypto tip!"})
-            )
-            
-            # Use conversation_chain but with our custom prompt
-            response = await asyncio.to_thread(
-                open_llm_vtuber.conversation_chain,
-                user_input=prompt
-            )
-            
-            print(f"Responded to {token} tip from {tipper}")
-            
+            if amount > 0:
+                await websocket.send_text(
+                    json.dumps({"type": "full-text", "text": "💰 Received a crypto tip!"})
+                )
+                
+                response = await asyncio.to_thread(
+                    open_llm_vtuber.conversation_chain,
+                    user_input=user_prompt
+                )
+                
+                print(f"Successfully responded to {token} tip from {tipper}")
         except Exception as e:
             print(f"Error handling tip: {e}")
 
@@ -150,12 +148,26 @@ class WebSocketServer:
             while True:
                 message = await self.pubsub.get_message(ignore_subscribe_messages=True)
                 if message and message['type'] == 'message':
-                    tip_data = json.loads(message['data'])
-                    await self.handle_tip(tip_data, websocket, open_llm_vtuber)
-                await asyncio.sleep(0.1)  # Prevent busy-waiting
+                    try:
+                        # Properly decode bytes to string first
+                        message_data = message['data'].decode('utf-8') if isinstance(message['data'], bytes) else message['data']
+                        print(f"DEBUG: Received Redis message: {message_data}")  # Debug log
+                        
+                        tip_data = json.loads(message_data)
+                        
+                        # Validate required fields
+                        if not all(k in tip_data for k in ['token', 'amount']):
+                            print("Invalid tip data format - missing required fields")
+                            continue
+                            
+                        await self.handle_tip(tip_data, websocket, open_llm_vtuber)
+                    except json.JSONDecodeError as e:
+                        print(f"Failed to parse message data: {e}")
+                    except Exception as e:
+                        print(f"Error processing tip message: {e}")
+                await asyncio.sleep(0.1)
         except Exception as e:
             print(f"Error in tip monitor: {e}")
-            # Attempt to reconnect or handle error...
 
     def _setup_routes(self):
         """Sets up the WebSocket and broadcast routes."""

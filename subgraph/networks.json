@@ -1,0 +1,8 @@
+{
+  "base-sepolia": {
+    "OniiNFT": {
+      "address": "0x9fa0da29b88cc1479d28cead5a12ff498528a9d0",
+      "startBlock": 17997909
+    }
+  }
+}
