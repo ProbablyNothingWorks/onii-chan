@@ -114,7 +114,7 @@ export const Description = () => {
                 height: '100%',
                 borderRadius: '8px'
               }}
-              src="https://www.youtube.com/embed/Vcmm4YwyoQc"
+              src="https://www.youtube.com/embed/9IIBlChBsRk"
               title="Virtual Idol Manager Demo"
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
               allowFullScreen
