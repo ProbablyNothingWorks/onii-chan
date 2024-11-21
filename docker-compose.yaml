@@ -18,13 +18,12 @@ services:
     volumes:
       - ./storage/models:/app/asr/models
       - ./storage/cache:/app/cache
-      - ./storage/live2d-models:/app/live2d-models
-      - ./storage/static:/app/static
-      - ./storage/prompts:/app/prompts
-      - ./services/vtuber/conf.yaml:/app/conf.yaml
-      - ./shared:/app/shared
+      - ./conf.yaml:/app/conf.yaml
     depends_on:
-      - redis
+      redis:
+        condition: service_healthy
+    tty: true
+    stdin_open: true
 
   event-monitor:
     build:
@@ -37,7 +36,8 @@ services:
     volumes:
       - ./shared:/app/shared
     depends_on:
-      - redis
+      redis:
+        condition: service_healthy
 
   redis:
     image: redis:alpine
@@ -45,6 +45,11 @@ services:
       - "6379:6379"
     volumes:
       - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 1s
+      timeout: 3s
+      retries: 30
 
 volumes:
   redis_data: 
