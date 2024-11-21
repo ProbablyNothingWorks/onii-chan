@@ -155,8 +155,15 @@ GroqWhisperASR:
 
 # ============== Text to Speech ==============
 TTS_ON: True
-TTS_MODEL: "edgeTTS"
-# text to speech model options: 
+TTS_MODEL: "ElevenLabsTTS"
+ElevenLabsTTS:
+  api_key: ${ELEVEN_API_KEY}
+  voice_id: ${ELEVEN_VOICE_ID}  # Optional, defaults to Rachel
+  model_id: "eleven_monolingual_v1"  # Optional
+  stability: 0.50  # Optional (0-1)
+  similarity_boost: 0.75  # Optional (0-1)
+  style: 0.50  # Optional (0-1)
+  use_speaker_boost: true  # Optional# text to speech model options: 
 #   "AzureTTS", "pyttsx3TTS", "edgeTTS", "barkTTS", 
 #   "cosyvoiceTTS", "meloTTS", "piperTTS", "coquiTTS",
 #   "fishAPITTS"
