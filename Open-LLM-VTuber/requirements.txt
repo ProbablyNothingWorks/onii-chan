@@ -22,3 +22,4 @@ chardet
 anthropic>=0.18.0
 --only-binary=:all: pywhispercpp
 huggingface_hub
+elevenlabs

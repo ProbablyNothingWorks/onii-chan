@@ -18,7 +18,7 @@ services:
     volumes:
       - ./storage/models:/app/asr/models
       - ./storage/cache:/app/cache
-      - ./conf.yaml:/app/conf.yaml
+      - ./Open-LLM-VTuber/conf.yaml:/app/conf.yaml
     depends_on:
       redis:
         condition: service_healthy
