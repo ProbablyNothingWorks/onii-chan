@@ -208,16 +208,20 @@ class OpenLLMVTuberMain:
         - str: The full response from the LLM
         """
 
-        if not self._continue_exec_flag.wait(
-            timeout=self.EXEC_FLAG_CHECK_TIMEOUT
-        ):  # Wait for the flag to be set
-            print(
-                ">> Execution flag not set. In interruption state for too long. Resetting the flag and exiting the conversation chain."
-            )
+        def clean_text_for_tts(text: str) -> str:
+            """Remove action text between asterisks for TTS"""
+            # Remove text between asterisks
+            cleaned = re.sub(r'\*[^*]+\*', '', text)
+            # Remove any leftover asterisks
+            cleaned = cleaned.replace('*', '')
+            # Clean up extra spaces
+            cleaned = ' '.join(cleaned.split())
+            return cleaned
+
+        if not self._continue_exec_flag.wait(timeout=self.EXEC_FLAG_CHECK_TIMEOUT):
+            print(">> Execution flag not set...")
             self._continue_exec_flag.set()
-            raise InterruptedError(
-                "Conversation chain interrupted. Wait flag timeout reached."
-            )
+            raise InterruptedError("Conversation chain interrupted...")
 
         # Generate a random number between 0 and 3
         color_code = random.randint(0, 3)
@@ -257,9 +261,46 @@ class OpenLLMVTuberMain:
                 print(char, end="")
             return full_response
 
-        full_response = self.speak(chat_completion)
-        if self.verbose:
-            print(f"\nComplete response: [\n{full_response}\n]")
+        # For TTS, clean the text before speaking
+        full_response = ""
+        current_sentence = ""
+        
+        for char in chat_completion:
+            if not self._continue_exec_flag.is_set():
+                self._interrupt_post_processing()
+                print("\nInterrupted!")
+                return None
+            
+            print(char, end="")
+            current_sentence += char
+            full_response += char
+            
+            if self.is_complete_sentence(current_sentence):
+                # Clean the text before sending to TTS
+                cleaned_sentence = clean_text_for_tts(current_sentence)
+                if cleaned_sentence.strip():  # Only process if there's text after cleaning
+                    filename = self._generate_audio_file(cleaned_sentence, "temp")
+                    if self._continue_exec_flag.is_set():
+                        self._play_audio_file(
+                            sentence=current_sentence,  # Keep original for display
+                            filepath=filename,
+                        )
+                    else:
+                        self._interrupt_post_processing()
+                current_sentence = ""
+
+        # Handle any remaining text
+        if current_sentence.strip():
+            cleaned_sentence = clean_text_for_tts(current_sentence)
+            if cleaned_sentence.strip():
+                filename = self._generate_audio_file(cleaned_sentence, "temp")
+                if self._continue_exec_flag.is_set():
+                    self._play_audio_file(
+                        sentence=current_sentence,
+                        filepath=filename,
+                    )
+                else:
+                    self._interrupt_post_processing()
 
         print(f"{c[color_code]}Conversation completed.")
         return full_response
