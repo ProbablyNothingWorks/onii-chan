@@ -98,11 +98,25 @@ class WebSocketServer:
     async def setup_redis(self):
         """Initialize Redis connection and subscription"""
         print("Setting up Redis connection...")  # Debug print
-        self.redis_client = await aioredis.from_url('redis://172.25.1.196')
-        self.pubsub = self.redis_client.pubsub()
-        await self.pubsub.subscribe('crypto_tips')
-        print("Redis subscription established")  # Debug print
+        max_retries = 3
+        retry_delay = 1  # seconds
         
+        for attempt in range(max_retries):
+            try:
+                self.redis_client = await aioredis.from_url('redis://redis:6379')
+                self.pubsub = self.redis_client.pubsub()
+                await self.pubsub.subscribe('crypto_tips')
+                print("Redis subscription established")  # Debug print
+                return
+            except Exception as e:
+                if attempt < max_retries - 1:
+                    print(f"Failed to connect to Redis (attempt {attempt + 1}/{max_retries}). Retrying in {retry_delay} seconds...")
+                    await asyncio.sleep(retry_delay)
+                    retry_delay *= 2  # Exponential backoff
+                else:
+                    print(f"Failed to connect to Redis after {max_retries} attempts, ignoring")
+                    #raise
+
     async def handle_tip(self, tip_data: dict, websocket: WebSocket, open_llm_vtuber: OpenLLMVTuberMain):
         """Process incoming crypto tip and generate VTuber response"""
         print(f"\n=== Processing Tip ===\nData: {tip_data}")
