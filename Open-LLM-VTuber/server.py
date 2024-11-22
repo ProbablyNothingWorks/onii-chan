@@ -18,6 +18,8 @@ from loguru import logger
 import redis.asyncio as aioredis
 from decimal import Decimal
 from prompts.crypto_reactions import get_token_specific_reactions, format_tip_response
+from prompts.intent_classifier import classify_message, MessageIntent
+from prompts.ir_reactions import format_ir_response
 
 
 class WebSocketServer:
@@ -427,6 +429,45 @@ Respond to this tip while maintaining your character's personality. Incorporate 
         if (os.path.exists(cache_dir)):
             shutil.rmtree(cache_dir)
             os.makedirs(cache_dir)
+
+    async def handle_message(self, message: str, websocket: WebSocket, open_llm_vtuber: OpenLLMVTuberMain):
+        """Process incoming messages with intent classification"""
+        intent, confidence = await classify_message(message, open_llm_vtuber.llm_client)
+        
+        if intent == MessageIntent.INVESTOR_RELATIONS and confidence > 0.8:
+            # Determine the type of IR query
+            ir_types = ["tokenomics", "fundraising", "business_model", "partnerships"]
+            
+            # Use the LLM to classify which type of IR query this is
+            type_prompt = f"""
+            Classify this investor relations question into one of these categories: {', '.join(ir_types)}
+            Question: {message}
+            Respond with only the category name.
+            """
+            query_type = await asyncio.to_thread(
+                open_llm_vtuber.conversation_chain,
+                user_input=type_prompt
+            )
+            query_type = query_type.strip().lower()
+            
+            # Get the IR context for this type of query
+            ir_context = format_ir_response(query_type)
+            
+            # Generate the response using the IR context
+            response = await asyncio.to_thread(
+                open_llm_vtuber.conversation_chain,
+                user_input=f"{ir_context}\n\nUser question: {message}"
+            )
+            
+        elif intent == MessageIntent.CRYPTO_TIP:
+            await self.handle_tip(message, websocket, open_llm_vtuber)
+            
+        else:
+            # Handle general chat
+            response = await asyncio.to_thread(
+                open_llm_vtuber.conversation_chain,
+                user_input=message
+            )
 
 
 def load_config_with_env(path) -> dict:
