@@ -99,25 +99,25 @@ class WebSocketServer:
 
     async def setup_redis(self):
         """Initialize Redis connection and subscription"""
-        print("Setting up Redis connection...")  # Debug print
+        print("Setting up Redis connection...")
         max_retries = 3
-        retry_delay = 1  # seconds
+        retry_delay = 1
         
         for attempt in range(max_retries):
             try:
                 self.redis_client = await aioredis.from_url('redis://redis:6379')
                 self.pubsub = self.redis_client.pubsub()
-                await self.pubsub.subscribe('crypto_tips')
-                print("Redis subscription established")  # Debug print
+                # Subscribe to both channels
+                await self.pubsub.subscribe('crypto_tips', 'vtuber_events')
+                print("Redis subscriptions established")
                 return
             except Exception as e:
                 if attempt < max_retries - 1:
                     print(f"Failed to connect to Redis (attempt {attempt + 1}/{max_retries}). Retrying in {retry_delay} seconds...")
                     await asyncio.sleep(retry_delay)
-                    retry_delay *= 2  # Exponential backoff
+                    retry_delay *= 2
                 else:
                     print(f"Failed to connect to Redis after {max_retries} attempts, ignoring")
-                    #raise
 
     async def handle_tip(self, tip_data: dict, websocket: WebSocket, open_llm_vtuber: OpenLLMVTuberMain):
         """Process incoming crypto tip and generate VTuber response"""
@@ -158,43 +158,92 @@ Respond to this tip while maintaining your character's personality. Incorporate 
         except Exception as e:
             print(f"Error handling tip: {e}")
 
-    async def monitor_tips(self, websocket: WebSocket, open_llm_vtuber: OpenLLMVTuberMain):
-        """Background task to monitor Redis for incoming tips"""
+    async def monitor_events(self, websocket: WebSocket, open_llm_vtuber: OpenLLMVTuberMain):
+        """Monitor Redis for both tips and chat messages"""
         try:
             while True:
                 message = await self.pubsub.get_message(ignore_subscribe_messages=True)
                 if message and message['type'] == 'message':
                     try:
-                        # Properly decode bytes to string first
                         message_data = message['data'].decode('utf-8') if isinstance(message['data'], bytes) else message['data']
-                        print(f"DEBUG: Received Redis message: {message_data}")  # Debug log
+                        print(f"DEBUG: Received Redis message: {message_data}")
                         
-                        tip_data = json.loads(message_data)
+                        data = json.loads(message_data)
+                        event_type = data.get('type')
                         
-                        # Validate required fields
-                        if not all(k in tip_data for k in ['token', 'amount']):
-                            print("Invalid tip data format - missing required fields")
-                            continue
-                            
-                        await self.handle_tip(tip_data, websocket, open_llm_vtuber)
-                    except json.JSONDecodeError as e:
-                        print(f"Failed to parse message data: {e}")
-                    except Exception as e:
-                        print(f"Error processing tip message: {e}")
+                        if event_type == 'tip':
+                            # Handle crypto tips
+                            if all(k in data for k in ['token', 'amount']):
+                                await self.handle_tip(data, websocket, open_llm_vtuber)
+                            else:
+                                print("Invalid tip data format")
+                                
+                        elif event_type == 'chat':
+                            # Handle chat messages
+                            if 'text' in data:
+                                response = await self.handle_message(
+                                    data['text'],
+                                    websocket,
+                                    open_llm_vtuber
+                                )
+                                await websocket.send_text(
+                                    json.dumps({
+                                        "type": "full-text",
+                                        "text": response,
+                                        "session_id": data.get("session_id", "default")
+                                    })
+                                )
+                            else:
+                                print("Invalid chat data format")
+                                
                 await asyncio.sleep(0.1)
         except Exception as e:
-            print(f"Error in tip monitor: {e}")
+            print(f"Error in event monitor: {e}")
 
     def _setup_routes(self):
         """Sets up the WebSocket and broadcast routes."""
 
-        # the connection between this server and the frontend client
-        # The version 2 of the client-ws. Introduces breaking changes.
-        # This route will initiate its own main.py instance and conversation loop
+        # Add this new endpoint for text chat
+        @self.app.websocket("/text-ws")
+        async def text_websocket_endpoint(websocket: WebSocket):
+            await websocket.accept()
+            await self.setup_redis()
+
+            await websocket.send_text(
+                json.dumps({"type": "full-text", "text": "Text chat connection established"})
+            )
+
+            # Initialize components
+            _, open_llm_vtuber, _ = self._initialize_components(websocket)
+            
+            try:
+                while True:
+                    message = await websocket.receive_text()
+                    data = json.loads(message)
+                    
+                    if data.get("type") == "text-message":
+                        response = await self.handle_message(
+                            data.get("text", ""), 
+                            websocket, 
+                            open_llm_vtuber
+                        )
+                        
+                        # Send the response back to the client
+                        await websocket.send_text(
+                            json.dumps({
+                                "type": "full-text",
+                                "text": response
+                            })
+                        )
+            
+            except WebSocketDisconnect:
+                print("Text chat client disconnected")
+
+        # the existing voice chat endpoint
         @self.app.websocket("/client-ws")
         async def websocket_endpoint(websocket: WebSocket):
             await websocket.accept()
-            await self.setup_redis()  # Initialize Redis connection
+            await self.setup_redis()
             
             await websocket.send_text(
                 json.dumps({"type": "full-text", "text": "Connection established"})
@@ -206,9 +255,9 @@ Respond to this tip while maintaining your character's personality. Incorporate 
             # Initialize components
             l2d, open_llm_vtuber, _ = self._initialize_components(websocket)
             
-            # Start tip monitoring task
-            self.tip_reaction_task = asyncio.create_task(
-                self.monitor_tips(websocket, open_llm_vtuber)
+            # Start event monitoring task (replaces tip_reaction_task)
+            self.event_monitor_task = asyncio.create_task(
+                self.monitor_events(websocket, open_llm_vtuber)
             )
             
             await websocket.send_text(
@@ -438,7 +487,6 @@ Respond to this tip while maintaining your character's personality. Incorporate 
             # Determine the type of IR query
             ir_types = ["tokenomics", "fundraising", "business_model", "partnerships"]
             
-            # Use the LLM to classify which type of IR query this is
             type_prompt = f"""
             Classify this investor relations question into one of these categories: {', '.join(ir_types)}
             Question: {message}
@@ -450,17 +498,17 @@ Respond to this tip while maintaining your character's personality. Incorporate 
             )
             query_type = query_type.strip().lower()
             
-            # Get the IR context for this type of query
             ir_context = format_ir_response(query_type)
             
-            # Generate the response using the IR context
             response = await asyncio.to_thread(
                 open_llm_vtuber.conversation_chain,
                 user_input=f"{ir_context}\n\nUser question: {message}"
             )
+            return response
             
         elif intent == MessageIntent.CRYPTO_TIP:
-            await self.handle_tip(message, websocket, open_llm_vtuber)
+            tip_response = await self.handle_tip(message, websocket, open_llm_vtuber)
+            return tip_response
             
         else:
             # Handle general chat
@@ -468,6 +516,7 @@ Respond to this tip while maintaining your character's personality. Incorporate 
                 open_llm_vtuber.conversation_chain,
                 user_input=message
             )
+            return response
 
 
 def load_config_with_env(path) -> dict:

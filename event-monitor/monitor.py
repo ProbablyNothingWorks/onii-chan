@@ -6,6 +6,7 @@ import os
 import ssl
 from web3 import Web3
 from datetime import datetime
+import time
 
 
 class GraphEventMonitor:
@@ -238,7 +239,30 @@ def get_token_symbol(token_address):
         print(f"Error fetching token metadata for {token_address}: {e}")
         return "UNKNOWN"
 
+# Add this function to publish chat messages
+def publish_chat_message(redis_client, message_data):
+    """
+    Publish a chat message to Redis
+    message_data should contain:
+    - text: the actual message
+    - from: who sent it (optional)
+    - session_id: to track conversation context
+    """
+    payload = {
+        "type": "chat",
+        "session_id": message_data.get("session_id", "default"),
+        "text": message_data["text"],
+        "from": message_data.get("from", "anon"),
+        "timestamp": int(time.time())
+    }
+    redis_client.publish('vtuber_events', json.dumps(payload))
 
+# Example usage:
+# publish_chat_message(redis_client, {
+#     "text": "Tell me about your tokenomics!",
+#     "from": "curious_investor.eth",
+#     "session_id": "abc123"
+# })
 
 async def main():
     while True:
