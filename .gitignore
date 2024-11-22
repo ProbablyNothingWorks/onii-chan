@@ -12,7 +12,6 @@ lab.py
 
 # Sensitive data
 .env
-.env.old
 api_keys.py
 llm/user_credentials.json
 
@@ -33,6 +32,7 @@ asset
 models/*
 !models/piper_voice
 models/piper_voice/*
+storage/
 
 
 # Legacy and specific directories

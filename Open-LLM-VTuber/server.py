@@ -130,6 +130,7 @@ class WebSocketServer:
         
         # Get the base reaction from crypto_reactions
         tip_reaction = format_tip_response(token, float(amount))
+        # tip_reaction = 'thank you'
         
         # Create a context-aware prompt that maintains character consistency
         user_prompt = f"""
