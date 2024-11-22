@@ -17,7 +17,7 @@ import { abi } from '../../abi';
 import { useSnackbar } from 'notistack';
 import { shortenAddress } from '@/util/shortenAddress';
 
-export const Tip = () => {
+export const TipETH = () => {
   const { data: hash, writeContract, isPending } = useWriteContract();
   const { status, chain } = useAccount();
   const { isLoading: isConfirming, isSuccess: isConfirmed } =
@@ -26,7 +26,6 @@ export const Tip = () => {
     });
   const { enqueueSnackbar } = useSnackbar();
   const [nftId, setNftId] = useState('');
-  const [tokenAddress, setTokenAddress] = useState('');
   const [amount, setAmount] = useState('');
   const [message, setMessage] = useState('');
 
@@ -61,15 +60,7 @@ export const Tip = () => {
         
         <TextField
           fullWidth
-          label="Tip ERC20 Address"
-          value={tokenAddress}
-          onChange={(e) => setTokenAddress(e.target.value)}
-          sx={{ mb: 2 }}
-        />
-        
-        <TextField
-          fullWidth
-          label="Tip ERC20 Amount"
+          label="ETH Amount"
           value={amount}
           onChange={(e) => setAmount(e.target.value)}
           sx={{ mb: 2 }}
@@ -91,15 +82,14 @@ export const Tip = () => {
               variant='contained'
               disabled={isPending || isConfirming}
               onClick={async () => {
-                if (!nftId || !tokenAddress || !amount) {
+                if (!nftId || !amount) {
                   enqueueSnackbar('Please fill in all required fields', { variant: 'error' });
                   return;
                 }
 
                 try {
-                  console.log('Sending tip with params:', {
+                  console.log('Sending ETH tip with params:', {
                     nftId: BigInt(nftId),
-                    tokenAddress,
                     amount: BigInt(amount),
                     message
                   });
@@ -107,13 +97,14 @@ export const Tip = () => {
                   writeContract({
                     abi,
                     address: '0x9fA0DA29B88cc1479D28CEaD5a12fF498528a9D0',
-                    functionName: 'tipERC20',
-                    args: [BigInt(nftId), BigInt(amount), tokenAddress, message]
+                    functionName: 'tipEth',
+                    args: [BigInt(nftId), BigInt(amount), message],
+                    value: BigInt(amount)
                   });
                 } catch (error) {
-                  console.error('Error sending tip:', error);
+                  console.error('Error sending ETH tip:', error);
                   enqueueSnackbar(
-                    error instanceof Error ? error.message : 'Failed to send tip',
+                    error instanceof Error ? error.message : 'Failed to send ETH tip',
                     { variant: 'error' }
                   );
                 }
@@ -122,7 +113,7 @@ export const Tip = () => {
               {isPending || isConfirming ? (
                 <CircularProgress color='inherit' size={16} />
               ) : (
-                'Tip'
+                'Tip ETH'
               )}
             </Button>
           ) : (

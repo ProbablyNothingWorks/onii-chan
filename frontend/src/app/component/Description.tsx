@@ -73,6 +73,54 @@ export const Description = () => {
             </Typography>
           </Box>
         </Paper>
+        {/* YouTube Video Section */}
+        <Paper
+          elevation={3}
+          sx={{
+            p: 4,
+            mb: 6,
+            borderRadius: '16px',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center'
+          }}
+        >
+          <Typography
+            variant='h4'
+            gutterBottom
+            sx={{
+              fontWeight: 'bold',
+              textAlign: 'center',
+              mb: 3
+            }}
+          >
+            Our Demo
+          </Typography>
+          <Box
+            sx={{
+              position: 'relative',
+              width: '100%',
+              maxWidth: '800px',
+              paddingTop: '56.25%', // 16:9 Aspect Ratio
+              mb: 2
+            }}
+          >
+            <iframe
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: '100%',
+                height: '100%',
+                borderRadius: '8px'
+              }}
+              src="https://www.youtube.com/embed/9IIBlChBsRk"
+              title="Virtual Idol Manager Demo"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowFullScreen
+            />
+          </Box>
+        </Paper>
 
         {/* Features Section */}
         <Box
@@ -94,7 +142,7 @@ export const Description = () => {
               fontWeight: 'bold'
             }}
           >
-            Features
+            Gameplay Features
           </Typography>
           <Box
             sx={{
