@@ -17,7 +17,7 @@ import chardet
 from loguru import logger
 import redis.asyncio as aioredis
 from decimal import Decimal
-from prompts.crypto_reactions import get_token_specific_reactions, format_tip_response
+# from prompts.crypto_reactions import get_token_specific_reactions, format_tip_response
 
 
 class WebSocketServer:
@@ -127,7 +127,8 @@ class WebSocketServer:
         message = tip_data.get('message', '')
         
         # Get the base reaction from crypto_reactions
-        tip_reaction = format_tip_response(token, float(amount))
+        # tip_reaction = format_tip_response(token, float(amount))
+        tip_reaction = 'thank you'
         
         # Create a context-aware prompt that maintains character consistency
         user_prompt = f"""
