@@ -7,14 +7,8 @@ services:
       dockerfile: Dockerfile
     ports:
       - "12393:12393"
-    environment:
-      - HF_ENDPOINT_URL=${HF_ENDPOINT_URL}
-      - HF_TOKEN=${HF_TOKEN}
-      - LLM_API_KEY=${LLM_API_KEY}
-      - PROJECT_ID=${PROJECT_ID}
-      - CDP_API_KEY_NAME=${CDP_API_KEY_NAME}
-      - CDP_API_KEY_PRIVATE_KEY=${CDP_API_KEY_PRIVATE_KEY}
-      - REDIS_URL=redis://redis:6379
+    env_file:
+      - ./Open-LLM-VTuber/.env
     volumes:
       - ./storage/models:/app/asr/models
       - ./storage/cache:/app/cache

@@ -12,6 +12,7 @@ lab.py
 
 # Sensitive data
 .env
+.env.old
 api_keys.py
 llm/user_credentials.json
 

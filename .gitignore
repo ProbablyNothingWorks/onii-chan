@@ -32,6 +32,7 @@ asset
 models/*
 !models/piper_voice
 models/piper_voice/*
+storage/
 
 
 # Legacy and specific directories
