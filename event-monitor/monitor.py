@@ -64,7 +64,7 @@ class GraphEventMonitor:
             }
         }
         """ % (from_block, to_block)
-
+        print(f"Fetching tips from block {from_block} to block {to_block}")
         result = await self.make_request(query)
         return result.get('data', {}).get('tips', [])
 
@@ -86,43 +86,43 @@ class GraphEventMonitor:
         print("Starting Graph event monitor...")
         stored_block = None
         
-        # while True:
-        #     try:
-        #         # Get current block from The Graph
-        #         latest_block = await self.get_latest_block()
-        #         print(f"Latest block: {latest_block}")
-        #         if stored_block is None:
-        #             stored_block = latest_block - 1
-        #             print(f"Starting from block {stored_block}")
+        while True:
+            try:
+                # Get current block from The Graph
+                latest_block = await self.get_latest_block()
+                print(f"Latest block: {latest_block}")
+                if stored_block is None:
+                    stored_block = latest_block - 1
+                    print(f"Starting from block {stored_block}")
 
-        #         # Calculate block range for this query
-        #         from_block = stored_block + 1
-        #         to_block = min(from_block + self.blocks_per_query - 1, latest_block)
+                # Calculate block range for this query
+                from_block = stored_block + 1
+                to_block = min(from_block + self.blocks_per_query - 1, latest_block)
 
-        #         if from_block > latest_block:
-        #             print("Waiting for new blocks...")
-        #             await asyncio.sleep(self.poll_interval)
-        #             continue
+                if from_block > latest_block:
+                    print("Waiting for new blocks...")
+                    await asyncio.sleep(self.poll_interval)
+                    continue
 
-        #         print(f"Checking blocks {from_block} to {to_block}")
-        #         tips = await self.fetch_tips(from_block, to_block)
+                print(f"Checking blocks {from_block} to {to_block}")
+                tips = await self.fetch_tips(from_block, to_block)
                 
-        #         for tip in tips:
-        #             try:
-        #                 await self.process_event(tip)
-        #             except Exception as e:
-        #                 print(f"Error processing tip: {str(e)}")
-        #                 continue
+                for tip in tips:
+                    try:
+                        await self.process_event(tip)
+                    except Exception as e:
+                        print(f"Error processing tip: {str(e)}")
+                        continue
 
-        #         # Update stored block
-        #         stored_block = to_block
+                # Update stored block
+                stored_block = to_block
 
-        #     except Exception as e:
-        #         print(f"Loop error: {str(e)}")
-        #         await asyncio.sleep(self.poll_interval)
-        #         continue
+            except Exception as e:
+                print(f"Loop error: {str(e)}")
+                await asyncio.sleep(self.poll_interval)
+                continue
 
-        #     await asyncio.sleep(self.poll_interval)
+            await asyncio.sleep(self.poll_interval)
 
     async def process_event(self, tip):
         try:
