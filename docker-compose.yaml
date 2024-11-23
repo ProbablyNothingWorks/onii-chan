@@ -23,10 +23,8 @@ services:
     build:
       context: ./event-monitor
       dockerfile: Dockerfile
-    environment:
-      - WEB3_RPC_URL=${WEB3_RPC_URL}
-      - CONTRACT_ADDRESS=${CONTRACT_ADDRESS}
-      - REDIS_URL=redis://redis:6379
+    env_file:
+      - ./event-monitor/.env
     volumes:
       - ./shared:/app/shared
     depends_on:

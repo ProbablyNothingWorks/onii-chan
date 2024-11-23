@@ -6,22 +6,26 @@ import os
 import ssl
 from web3 import Web3
 from datetime import datetime
-import time
-
+print('HAHA WORLD')
 
 class GraphEventMonitor:
     def __init__(self):
+        print(f"WEB3_RPC_URL: {os.getenv('WEB3_RPC_URL')}")
+        print(f"CONTRACT_ADDRESS: {os.getenv('CONTRACT_ADDRESS')}")
+        print(f"REDIS_URL: {os.getenv('REDIS_URL')}")
+        print(f"MNEMONIC_API_KEY: {os.getenv('MNEMONIC_API_KEY')}")
         self.graph_url = "https://api.studio.thegraph.com/query/12344/onii-chan/version/latest"
-        self.redis_client = redis.Redis.from_url(os.getenv('REDIS_URL', 'redis://localhost:6379'))
+        self.redis_client = redis.Redis.from_url(os.getenv('REDIS_URL'))
         self.w3 = Web3()
         self.blocks_per_query = 2
         self.poll_interval = 5
-        self.alchemy_url = os.getenv('ALCHEMY_URL', 'https://base-sepolia.g.alchemy.com/v2/docs-demo')
+        self.alchemy_url = os.getenv('WEB3_RPC_URL')
         
         # Create SSL context
         self.ssl_context = ssl.create_default_context()
         self.ssl_context.check_hostname = False
         self.ssl_context.verify_mode = ssl.CERT_NONE
+        print('END OF INIT')
 
 
     async def make_request(self, query):
@@ -60,7 +64,7 @@ class GraphEventMonitor:
             }
         }
         """ % (from_block, to_block)
-
+        print(f"Fetching tips from block {from_block} to block {to_block}")
         result = await self.make_request(query)
         return result.get('data', {}).get('tips', [])
 
@@ -86,7 +90,7 @@ class GraphEventMonitor:
             try:
                 # Get current block from The Graph
                 latest_block = await self.get_latest_block()
-                
+                print(f"Latest block: {latest_block}")
                 if stored_block is None:
                     stored_block = latest_block - 1
                     print(f"Starting from block {stored_block}")
@@ -184,7 +188,7 @@ def get_ens(address):
     
     # Set the headers with the API key
     headers = {
-        'X-API-Key': 'IMAbzFuLRsW9GTkBg4LDL0YV5MwAN7mTsXET5PGSL3oYWiMH'
+        'X-API-Key': os.getenv('MNEMONIC_API_KEY')
     }
     
     try:
@@ -227,7 +231,7 @@ def get_token_symbol(token_address):
             "content-type": "application/json"
         }
         
-        response = requests.post('https://base-sepolia.g.alchemy.com/v2/jRDWgvakZFvscXO7eOIZKItOQ_FpnfKd', json=payload, headers=headers)
+        response = requests.post(os.getenv('WEB3_RPC_URL'), json=payload, headers=headers)
         response.raise_for_status()
         
         data = response.json()
@@ -267,6 +271,7 @@ def publish_chat_message(redis_client, message_data):
 async def main():
     while True:
         try:
+            print('HELLO WORLD2')
             monitor = GraphEventMonitor()
             await monitor.monitor_events()
         except Exception as e:
@@ -274,5 +279,6 @@ async def main():
             await asyncio.sleep(5)
 
 if __name__ == "__main__":
+    print('HELLO WORLD')
     # print(get_token_symbol('0x036CbD53842c5426634e7929541eC2318f3dCF7e'))
     asyncio.run(main())
