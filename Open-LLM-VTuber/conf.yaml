@@ -10,7 +10,7 @@ PORT: 12393
 #   (or "fakellm for debug purposes")
 # "ollama" for any OpenAI Compatible backend. "memgpt" requires setup
 #LLM_PROVIDER: "ollama"
-LLM_PROVIDER: "hfendpoint"
+LLM_PROVIDER: "ollama"
 #LLM_PROVIDER: "hfllama"
 
 # Ollama & OpenAI Compatible inference backend
@@ -155,8 +155,15 @@ GroqWhisperASR:
 
 # ============== Text to Speech ==============
 TTS_ON: True
-TTS_MODEL: "edgeTTS"
-# text to speech model options: 
+TTS_MODEL: "ElevenLabsTTS"
+ElevenLabsTTS:
+  api_key: ${ELEVEN_API_KEY}
+  voice_id: ${ELEVEN_VOICE_ID}  # Optional, defaults to Rachel
+  model_id: "eleven_monolingual_v1"  # Optional
+  stability: 0.50  # Optional (0-1)
+  similarity_boost: 0.75  # Optional (0-1)
+  style: 0.50  # Optional (0-1)
+  use_speaker_boost: true  # Optional# text to speech model options: 
 #   "AzureTTS", "pyttsx3TTS", "edgeTTS", "barkTTS", 
 #   "cosyvoiceTTS", "meloTTS", "piperTTS", "coquiTTS",
 #   "fishAPITTS"
@@ -269,7 +276,7 @@ MEMORY_SNAPSHOT: True
 # You can add persona prompt by adding a txt file in the promptss/persona folder and switch to it by enter the file name in here.
 # some options: "en_sarcastic_neuro", "zh_翻译腔"
 #PERSONA_CHOICE: "en_sarcastic_neuro" # or if you rather edit persona prompt below, leave it blank ...
-PERSONA_CHOICE: "picklerick"
+PERSONA_CHOICE: "oniichan"
 
 # This prompt will be used instead if the PERSONA_CHOICE is empty
 #DEFAULT_PERSONA_PROMPT_IN_YAML: |

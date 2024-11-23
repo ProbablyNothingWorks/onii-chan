@@ -1,5 +1,6 @@
 from typing import Type
 from .tts_interface import TTSInterface
+from .elevenlabs_tts import ElevenLabsTTS
 
 
 class TTSFactory:
@@ -83,6 +84,9 @@ class TTSFactory:
                 latency=kwargs.get("latency"),
                 base_url=kwargs.get("base_url"),
             )
+            
+        elif engine_type == "ElevenLabsTTS":
+            return ElevenLabsTTS(**kwargs)
             
         else:
             raise ValueError(f"Unknown TTS engine type: {engine_type}")
