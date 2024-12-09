@@ -165,7 +165,6 @@ Respond to this tip while maintaining your character's personality. Incorporate 
             while True:
                 message = await self.pubsub.get_message(ignore_subscribe_messages=True)
                 if message and message['type'] == 'message':
-                    try:
                         message_data = message['data'].decode('utf-8') if isinstance(message['data'], bytes) else message['data']
                         print(f"DEBUG: Received Redis message: {message_data}")
                         
