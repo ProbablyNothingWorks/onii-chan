@@ -28,6 +28,8 @@ services:
     volumes:
       - ./shared:/app/shared
     depends_on:
+      ollama:
+        condition: service_healthy
       redis:
         condition: service_healthy
 
@@ -42,6 +44,18 @@ services:
       interval: 1s
       timeout: 3s
       retries: 30
+  ollama:
+    image: ollama/ollama:latest
+    healthcheck:
+      test: ["CMD-SHELL", "pgrep ollama || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    ports:
+      - "11434:11434"
+    volumes:
+      - ./storage/models:/root/.ollama
 
 volumes:
   redis_data: 
